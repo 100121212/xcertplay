@@ -8,26 +8,19 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Search Internet Archive and Wayback
+      - name: Probe PGYER IPAHUB target
         shell: bash
         run: |
           set +e
-          echo "=== INTERNET ARCHIVE ADVANCED SEARCH ==="
-          for q in             '851443895'             '"育ててアイドルの卵"'             '"育成偶像之卵"'             '"com.app.idol"'             '"Chronus App Inc."'             '"GMO PLAY MUSIC"'
-          do
-            echo "--- QUERY: $q"
-            curl -L --max-time 45 -sS --get 'https://archive.org/advancedsearch.php'               --data-urlencode "q=$q"               --data-urlencode 'fl[]=identifier'               --data-urlencode 'fl[]=title'               --data-urlencode 'fl[]=description'               --data-urlencode 'fl[]=collection'               --data-urlencode 'fl[]=mediatype'               --data-urlencode 'rows=200'               --data-urlencode 'page=1'               --data-urlencode 'output=json'
-            echo
-          done
-
-          echo "=== WAYBACK CDX APP STORE ==="
-          for u in             'itunes.apple.com/jp/app/id851443895*'             'itunes.apple.com/*/app/*/id851443895*'             'apps.apple.com/*/app/*/id851443895*'             'itunes.apple.com/lookup?id=851443895*'             'app.iwww.jp/apps/idol/*'
-          do
-            echo "--- URL: $u"
-            curl -L --max-time 60 -sS --get 'https://web.archive.org/cdx/search/cdx'               --data-urlencode "url=$u"               --data-urlencode 'output=json'               --data-urlencode 'fl=timestamp,original,statuscode,mimetype,digest,length'               --data-urlencode 'filter=statuscode:200'               --data-urlencode 'collapse=digest'               --data-urlencode 'limit=500'
-            echo
-          done
-
-          echo "=== IA METADATA SEARCH API URL-ENCODED TITLE ==="
-          curl -L --max-time 45 -sS 'https://archive.org/advancedsearch.php?q=%28title%3A%28%22%E8%82%B2%E3%81%A6%E3%81%A6%E3%82%A2%E3%82%A4%E3%83%89%E3%83%AB%E3%81%AE%E5%8D%B5%22%29+OR+description%3A%28%22%E8%82%B2%E3%81%A6%E3%81%A6%E3%82%A2%E3%82%A4%E3%83%89%E3%83%AB%E3%81%AE%E5%8D%B5%22%29%29&fl%5B%5D=identifier&fl%5B%5D=title&rows=200&page=1&output=json'
+          URL='https://www.pgyer.com/ipa/ipa/tw.app.idol'
+          echo "=== HEADERS ==="
+          curl -L --max-time 45 -sS -D /tmp/h "$URL" -o /tmp/page
+          cat /tmp/h
           echo
+          echo "=== SIZE ==="
+          wc -c /tmp/page
+          echo
+          echo "=== DOWNLOAD/HREF/SCRIPT MATCHES ==="
+          grep -Eo 'https?://[^"[:space:]<>]+' /tmp/page | sed 's/&amp;/\&/g' | sort -u | head -n 300
+          echo
+          grep -nEi 'download|ipa|tw\.app\.idol|href=|data-url|file|pgyer' /tmp/page | head -n 600
