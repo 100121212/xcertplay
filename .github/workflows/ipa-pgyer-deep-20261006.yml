@@ -8,53 +8,42 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Extract real PGYER download logic
+      - name: Follow PGYER three-step download flow
         shell: bash
         run: |
           set +e
-          PAGE='https://www.pgyer.com/ipa/ipa/tw.app.idol'
-          curl -L --max-time 45 -sS "$PAGE" -o /tmp/page
+          BASE='https://www.pgyer.com/ipa/ipa/tw.app.idol'
+          UA='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/154 Safari/537.36'
+          rm -f /tmp/cookies
 
-          echo "=== SCRIPT URLS ==="
-          python3 -c "import pathlib,re,urllib.parse; s=pathlib.Path('/tmp/page').read_text(errors='replace'); u=sorted(set(re.findall(r'<script[^>]+src=\"([^\"]+\.js)\"',s,re.I))); u=[urllib.parse.urljoin('https://www.pgyer.com',x) for x in u]; pathlib.Path('/tmp/jsurls').write_text('\n'.join(u)); print('\n'.join(u))"
+          for path in '' '/download' '/downloading'
+          do
+            url="$BASE$path"
+            tag=$(printf '%s' "$path" | tr '/' '_' )
+            [ -z "$tag" ] && tag='_detail'
+            echo
+            echo "=============================="
+            echo "URL $url"
+            echo "=============================="
+
+            curl -L --max-time 45 -sS               -A "$UA"               -e "$BASE"               -c /tmp/cookies -b /tmp/cookies               -D "/tmp/h$tag"               "$url"               -o "/tmp/b$tag"
+
+            echo "--- HEADERS"
+            sed -n '1,50p' "/tmp/h$tag"
+            echo "--- SIZE"
+            wc -c "/tmp/b$tag"
+            echo "--- TITLE"
+            grep -Eo '<title>[^<]+' "/tmp/b$tag" | head -5
+            echo "--- ABSOLUTE URLS"
+            grep -Eo 'https?://[^"[:space:]<>]+' "/tmp/b$tag" | sed 's/&amp;/\&/g' | sort -u | head -300
+            echo "--- TARGET PATHS"
+            grep -Eo '/ipa/ipa/tw\.app\.idol[^"[:space:]<>]*' "/tmp/b$tag" | sort -u | head -100
+            echo "--- IPA-LIKE TOKENS"
+            grep -Eo '[A-Za-z0-9._/-]{1,160}\.ipa([?][^"[:space:]<>]*)?' "/tmp/b$tag" | sort -u | head -100
+            echo "--- CONTEXT download/downloading/href/url/file"
+            python3 -c "import pathlib,re; s=pathlib.Path('/tmp/b$tag').read_text(errors='replace'); pats=['downloading','/download','downloadUrl','download_url','href','fileUrl','file_url','.ipa','assets.apk.live','assets.appmeme.com']; [(print('### '+p), [print(s[max(0,m.start()-700):min(len(s),m.end()+1800)]) for m in list(re.finditer(re.escape(p),s,re.I))[:80]]) for p in pats]"
+          done
+
           echo
-
-          : > /tmp/alljs
-          while IFS= read -r u; do
-            [ -z "$u" ] && continue
-            echo "FETCH $u"
-            curl -L --max-time 30 -sS "$u" >> /tmp/alljs
-            printf '\n' >> /tmp/alljs
-          done < /tmp/jsurls
-
-          echo "ALLJS_BYTES $(wc -c < /tmp/alljs)"
-          echo
-
-          cat > /tmp/analyze.py <<'PY'
-          from pathlib import Path
-          import re
-          s = Path('/tmp/alljs').read_text(errors='replace')
-          patterns = [
-              'download', 'title_download', 'window.open', 'location.href',
-              'fetch(', 'axios', 'XMLHttpRequest', 'oss_object',
-              'object_name', 'apk.live', 'appmeme.com', '.ipa',
-              '/api/', 'api.', 'href:', 'href='
-          ]
-          for p in patterns:
-              ms = list(re.finditer(re.escape(p), s, re.I))
-              print(f"\n### {p} COUNT={len(ms)}")
-              for m in ms[:200]:
-                  a=max(0,m.start()-500); b=min(len(s),m.end()+1200)
-                  print(s[a:b])
-                  print('---')
-
-          print("\n### STRING LITERALS")
-          seen=set()
-          for m in re.finditer(r'["\x27]([^"\x27]{1,900})["\x27]', s):
-              v=m.group(1)
-              if re.search(r'download|\.ipa|apk\.live|appmeme|oss|object|api|file',v,re.I):
-                  if v not in seen:
-                      seen.add(v)
-                      print(v)
-          PY
-          python3 /tmp/analyze.py
+          echo "=== COOKIE JAR ==="
+          cat /tmp/cookies
