@@ -1,4 +1,4 @@
-name: appdb 1.7 spec parse 20261006
+name: appdb 1.7 search_index probe 20261006
 on:
   push:
     paths:
@@ -8,19 +8,22 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Parse official appdb 1.7 OpenAPI
+      - name: Read search_index schema and query target
         shell: bash
         run: |
           set +e
-          U='https://api.dbservices.to/v1.7/spec/openapi.yaml'
-          curl -L --max-time 30 -sS "$U" -o /tmp/openapi.yaml
-          echo "BYTES=$(wc -c < /tmp/openapi.yaml)"
-          echo "=== HEAD ==="
-          sed -n '1,220p' /tmp/openapi.yaml
+          BASE='https://api.dbservices.to/v1.7'
+          curl -L --max-time 30 -sS "$BASE/spec/openapi.yaml" -o /tmp/openapi.yaml
+
+          echo "=== SEARCH_INDEX SCHEMA ==="
+          sed -n '2984,3141p' /tmp/openapi.yaml
+
           echo
-          echo "=== PATH KEYS ==="
-          grep -En '^[[:space:]]*/[^:]+:' /tmp/openapi.yaml | head -600
-          echo
-          echo "=== INDEX/DOWNLOAD/APP CONTEXT ==="
-          grep -Ein -C 12 'index|download|bundle.?id|track.?id|application identifier|universal|links|official app|app list|list apps|search' /tmp/openapi.yaml | head -1600 || true
+          echo "=== TRY COMMON QUERY FORMS ==="
+          for q in             '育ててアイドルの卵'             '851443895'             'tw.app.idol'             'com.app.idol'
+          do
+            echo "--- q=$q"
+            curl -L --max-time 30 -sS -X POST               --data-urlencode "query=$q"               --data-urlencode 'type=ios'               "$BASE/search_index/" | head -c 120000
+            echo
+          done
           exit 0
