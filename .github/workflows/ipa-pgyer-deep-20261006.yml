@@ -1,4 +1,4 @@
-name: IPA PGYER API probe 20261006
+name: IPA PGYER compare download API 20261006
 on:
   push:
     paths:
@@ -8,33 +8,33 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe PGYER download API
+      - name: Compare target with known PGYER entries
         shell: bash
         run: |
           set +e
-          BASE='https://www.pgyer.com/ipa/ipa/tw.app.idol'
-          API='https://www.pgyer.com/ipa/api/download?id=tw.app.idol'
           UA='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/154 Safari/537.36'
-          rm -f /tmp/cookies /tmp/api.head /tmp/api.body /tmp/follow.head /tmp/follow.body
 
-          curl -L --max-time 30 -sS -A "$UA" -c /tmp/cookies "$BASE" -o /dev/null
-          curl -L --max-time 30 -sS -A "$UA" -e "$BASE" -b /tmp/cookies -c /tmp/cookies "$BASE/download" -o /dev/null
+          for id in 'tw.app.idol' 'com.openai.chat' 'tw.app.unagi'
+          do
+            base="https://www.pgyer.com/ipa/ipa/$id"
+            api="https://www.pgyer.com/ipa/api/download?id=$id"
+            jar="/tmp/cookies.$id"
+            rm -f "$jar" /tmp/h /tmp/b /tmp/h2 /tmp/b2
 
-          echo "=== API WITHOUT FOLLOW ==="
-          curl --max-time 30 -sS             -A "$UA" -e "$BASE/download"             -b /tmp/cookies -c /tmp/cookies             -D /tmp/api.head -o /tmp/api.body             -w 'FINAL_URL=%{url_effective}\nHTTP_CODE=%{http_code}\nCONTENT_TYPE=%{content_type}\nSIZE=%{size_download}\n'             "$API"
-          sed -n '1,80p' /tmp/api.head
-          echo "BODY_SIZE=$(wc -c < /tmp/api.body)"
-          echo "BODY_HEX=$(od -An -tx1 -N128 /tmp/api.body | tr -d '\n')"
-          echo "BODY_TEXT_BEGIN"
-          head -c 4000 /tmp/api.body | strings -n 1
-          echo "BODY_TEXT_END"
-          echo
+            echo "===== ID=$id ====="
+            curl -L --max-time 30 -sS -A "$UA" -c "$jar" "$base" -o /dev/null
+            curl -L --max-time 30 -sS -A "$UA" -e "$base" -b "$jar" -c "$jar" "$base/download" -o /dev/null
 
-          echo "=== API FOLLOW + RANGE 0-127 ==="
-          curl -L --max-time 60 -sS             -A "$UA" -e "$BASE/download"             -b /tmp/cookies -c /tmp/cookies             -r 0-127             -D /tmp/follow.head -o /tmp/follow.body             -w 'FINAL_URL=%{url_effective}\nHTTP_CODE=%{http_code}\nCONTENT_TYPE=%{content_type}\nSIZE=%{size_download}\n'             "$API"
-          grep -iE '^(HTTP/|location:|content-type:|content-length:|content-range:|content-disposition:)' /tmp/follow.head || true
-          echo "BODY_SIZE=$(wc -c < /tmp/follow.body)"
-          echo "BODY_HEX=$(od -An -tx1 -N128 /tmp/follow.body | tr -d '\n')"
-          echo "BODY_STRINGS_BEGIN"
-          strings -n 2 /tmp/follow.body | head -40
-          echo "BODY_STRINGS_END"
+            echo "--- NO FOLLOW"
+            curl --max-time 30 -sS               -A "$UA" -e "$base/download" -b "$jar" -c "$jar"               -D /tmp/h -o /tmp/b               -w 'FINAL_URL=%{url_effective}\nHTTP_CODE=%{http_code}\nCONTENT_TYPE=%{content_type}\nSIZE=%{size_download}\n'               "$api"
+            grep -iE '^(HTTP/|location:|content-type:|content-length:|content-disposition:)' /tmp/h || true
+            echo "BODY=$(head -c 300 /tmp/b | strings -n 1 | tr '\n' ' ' | head -c 500)"
+            echo
+
+            echo "--- FOLLOW RANGE"
+            curl -L --max-time 60 -sS               -A "$UA" -e "$base/download" -b "$jar" -c "$jar"               -r 0-63               -D /tmp/h2 -o /tmp/b2               -w 'FINAL_URL=%{url_effective}\nHTTP_CODE=%{http_code}\nCONTENT_TYPE=%{content_type}\nSIZE=%{size_download}\n'               "$api"
+            grep -iE '^(HTTP/|location:|content-type:|content-length:|content-range:|content-disposition:)' /tmp/h2 || true
+            echo "HEX=$(od -An -tx1 -N64 /tmp/b2 | tr -d '\n')"
+            echo "STRINGS=$(strings -n 2 /tmp/b2 | head -10 | tr '\n' ' ' | head -c 1000)"
+            echo
+          done
