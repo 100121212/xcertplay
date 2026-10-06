@@ -1,0 +1,21 @@
+name: Temporary APK transfer
+on:
+  workflow_dispatch:
+
+jobs:
+  transfer:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download temporary release asset
+        run: |
+          mkdir -p transfer
+          curl -L --fail --retry 3 "https://github.com/100121212/xcertplay/releases/download/apk-transfer-20261006/_APK.zip" -o transfer/idol-egg-apk.zip
+      - name: Upload transfer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: idol-egg-apk-transfer
+          path: transfer/idol-egg-apk.zip
+          compression-level: 0
+          retention-days: 1
