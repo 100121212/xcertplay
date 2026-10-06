@@ -1,0 +1,62 @@
+name: IPA fetch 20261007
+on:
+  push:
+    paths:
+      - ".github/workflows/ipa-fetch-20261007.yml"
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve and fetch PGYER IPA
+        shell: bash
+        run: |
+          set -u
+          URL='https://www.pgyer.com/ipa/api/download?id=tw.app.idol'
+          UA='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/154 Safari/537.36'
+          REFERER='https://www.pgyer.com/ipa/ipa/tw.app.idol/download'
+
+          echo '=== API HEADERS WITHOUT FOLLOW ==='
+          curl -sS --max-time 60 -A "$UA" -e "$REFERER"             -D /tmp/api.headers -o /tmp/api.body "$URL" || true
+          sed -n '1,80p' /tmp/api.headers
+          echo 'BODY_SIZE' "$(wc -c < /tmp/api.body 2>/dev/null || echo 0)"
+          head -c 500 /tmp/api.body 2>/dev/null || true
+          echo
+
+          echo '=== FOLLOW DOWNLOAD ==='
+          curl -L --retry 5 --retry-delay 1 --retry-all-errors --max-time 300             -A "$UA" -e "$REFERER"             -D /tmp/follow.headers -o /tmp/target.bin             -w 'HTTP=%{http_code}\nFINAL=%{url_effective}\nSIZE=%{size_download}\nTYPE=%{content_type}\n'             "$URL" | tee /tmp/curl-meta.txt || true
+
+          echo '=== FOLLOW HEADERS ==='
+          sed -n '1,200p' /tmp/follow.headers
+          echo '=== FILE ==='
+          ls -lh /tmp/target.bin || true
+          file /tmp/target.bin || true
+          sha256sum /tmp/target.bin || true
+          echo -n 'FIRST64='
+          od -An -tx1 -N64 /tmp/target.bin | tr -d '\n'
+          echo
+
+          mkdir -p /tmp/out
+          if unzip -t /tmp/target.bin >/tmp/unzip-test.txt 2>&1; then
+            echo 'ZIP_OK=1'
+            unzip -l /tmp/target.bin | head -80
+            if unzip -l /tmp/target.bin | grep -q 'Payload/.*\.app/'; then
+              echo 'IPA_STRUCTURE=1'
+              cp /tmp/target.bin '/tmp/out/育ててアイドルの卵_1.0.1.ipa'
+            else
+              echo 'IPA_STRUCTURE=0'
+              cp /tmp/target.bin '/tmp/out/pgyer_download.zip'
+            fi
+          else
+            echo 'ZIP_OK=0'
+            cat /tmp/unzip-test.txt
+            cp /tmp/target.bin '/tmp/out/pgyer_response.bin'
+          fi
+      - name: Upload recovered package
+        uses: actions/upload-artifact@v4
+        with:
+          name: idol-egg-pgyer-recovery
+          path: /tmp/out/*
+          if-no-files-found: warn
+          compression-level: 0
+          retention-days: 1
