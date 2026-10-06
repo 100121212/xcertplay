@@ -1,0 +1,14 @@
+name: archive IPA probe 20261006
+on:
+  push:
+    paths:
+      - "tools/archive_probe_20261006.py"
+      - ".github/workflows/archive-probe-20261006.yml"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Search public web archives
+        run: python3 tools/archive_probe_20261006.py
