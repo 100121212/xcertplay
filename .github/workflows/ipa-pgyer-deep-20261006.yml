@@ -1,4 +1,4 @@
-name: IPA PGYER deep probe 20261006
+name: IPA PGYER compact probe 20261006
 on:
   push:
     paths:
@@ -8,7 +8,7 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Follow PGYER three-step download flow
+      - name: Resolve PGYER IPA target
         shell: bash
         run: |
           set +e
@@ -16,34 +16,32 @@ jobs:
           UA='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/154 Safari/537.36'
           rm -f /tmp/cookies
 
-          for path in '' '/download' '/downloading'
-          do
-            url="$BASE$path"
-            tag=$(printf '%s' "$path" | tr '/' '_' )
-            [ -z "$tag" ] && tag='_detail'
-            echo
-            echo "=============================="
-            echo "URL $url"
-            echo "=============================="
+          curl -L --max-time 30 -sS -A "$UA" -c /tmp/cookies "$BASE" -o /tmp/detail >/dev/null
 
-            curl -L --max-time 45 -sS               -A "$UA"               -e "$BASE"               -c /tmp/cookies -b /tmp/cookies               -D "/tmp/h$tag"               "$url"               -o "/tmp/b$tag"
+          probe() {
+            name="$1"
+            url="$2"
+            body="/tmp/$name.body"
+            head="/tmp/$name.head"
+            meta="/tmp/$name.meta"
+            rm -f "$body" "$head" "$meta"
 
-            echo "--- HEADERS"
-            sed -n '1,50p' "/tmp/h$tag"
-            echo "--- SIZE"
-            wc -c "/tmp/b$tag"
+            curl -L --max-time 45 -sS               -A "$UA"               -e "$BASE"               -b /tmp/cookies -c /tmp/cookies               -D "$head"               -o "$body"               -w 'FINAL_URL=%{url_effective}\nHTTP_CODE=%{http_code}\nCONTENT_TYPE=%{content_type}\nSIZE=%{size_download}\n'               "$url" > "$meta"
+
+            echo "===== $name ====="
+            cat "$meta"
+            echo "--- REDIRECTS"
+            grep -iE '^(HTTP/|location:)' "$head" || true
             echo "--- TITLE"
-            grep -Eo '<title>[^<]+' "/tmp/b$tag" | head -5
-            echo "--- ABSOLUTE URLS"
-            grep -Eo 'https?://[^"[:space:]<>]+' "/tmp/b$tag" | sed 's/&amp;/\&/g' | sort -u | head -300
-            echo "--- TARGET PATHS"
-            grep -Eo '/ipa/ipa/tw\.app\.idol[^"[:space:]<>]*' "/tmp/b$tag" | sort -u | head -100
-            echo "--- IPA-LIKE TOKENS"
-            grep -Eo '[A-Za-z0-9._/-]{1,160}\.ipa([?][^"[:space:]<>]*)?' "/tmp/b$tag" | sort -u | head -100
-            echo "--- CONTEXT download/downloading/href/url/file"
-            python3 -c "import pathlib,re; s=pathlib.Path('/tmp/b$tag').read_text(errors='replace'); pats=['downloading','/download','downloadUrl','download_url','href','fileUrl','file_url','.ipa','assets.apk.live','assets.appmeme.com']; [(print('### '+p), [print(s[max(0,m.start()-700):min(len(s),m.end()+1800)]) for m in list(re.finditer(re.escape(p),s,re.I))[:80]]) for p in pats]"
-          done
+            grep -Eo '<title>[^<]+' "$body" | head -3 || true
+            echo "--- TARGET LINKS"
+            grep -Eo '(href|src)="[^"]+"' "$body" |               grep -Ei 'tw\.app\.idol|download|downloading|\.ipa|appmeme|apk\.live' |               sort -u | head -200 || true
+            echo "--- ABSOLUTE IPA/FILE URLS"
+            grep -Eo 'https?://[^"[:space:]<>\\]+' "$body" |               sed 's/&amp;/\&/g' |               grep -Ei '\.ipa([?&#]|$)|download|downloading|tw\.app\.idol' |               sort -u | head -200 || true
+            echo "--- SERIALIZED FIELDS"
+            grep -Eo '.{0,120}(downloadUrl|download_url|fileUrl|file_url|ipaUrl|ipa_url|objectName|object_name|oss[^":, ]*|downloading).{0,400}' "$body" |               head -200 || true
+            echo
+          }
 
-          echo
-          echo "=== COOKIE JAR ==="
-          cat /tmp/cookies
+          probe download "$BASE/download"
+          probe downloading "$BASE/downloading"
