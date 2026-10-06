@@ -1,0 +1,29 @@
+name: appdb 1.7 spec probe 20261007
+on:
+  push:
+    paths:
+      - ".github/workflows/appdb17-spec-20261007.yml"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Discover appdb 1.7 API spec
+        shell: bash
+        run: |
+          set +e
+          for u in             'https://api.dbservices.to/v1.7/spec/'             'https://api.dbservices.to/v1.7/spec/openapi.json'             'https://api.dbservices.to/v1.7/spec/swagger.json'             'https://api.dbservices.to/v1.7/openapi.json'             'https://api.dbservices.to/v1.7/swagger.json'             'https://api.dbservices.to/v1.7/spec.json'
+          do
+            echo "===== $u ====="
+            curl -L --max-time 30 -sS -D /tmp/h "$u" -o /tmp/b
+            sed -n '1,25p' /tmp/h
+            echo "SIZE $(wc -c < /tmp/b)"
+            echo "TYPE $(file -b /tmp/b)"
+            head -c 3000 /tmp/b
+            echo
+            echo
+          done
+
+          echo "===== SPEC PAGE LINK EXTRACTION ====="
+          curl -L --max-time 30 -sS 'https://api.dbservices.to/v1.7/spec/' -o /tmp/specpage
+          grep -Eo 'https?://[^"'''<> ]+|[^"'''<> ]+\.(json|yaml|yml)' /tmp/specpage | sort -u | head -200
