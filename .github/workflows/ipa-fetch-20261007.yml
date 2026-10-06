@@ -1,4 +1,4 @@
-name: IPA API control probe 20261007
+name: IPA API body probe 20261007
 on:
   push:
     paths:
@@ -8,32 +8,21 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Compare PGYER download API across apps
+      - name: Inspect working PGYER API response bodies
         shell: bash
         run: |
           set +e
           UA='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/154 Safari/537.36'
           COOKIE=/tmp/pgyer.cookies
 
-          for id in             'tw.app.idol'             'tw.app.monster'             'tw.app.yougyu'             'tw.apps.hiyoko'             'jp.recipe.yatai'             'com.openai.chat'             'com.google.Gmail'
+          for id in             'tw.app.monster'             'tw.app.yougyu'             'tw.apps.hiyoko'             'com.openai.chat'             'com.google.Gmail'
           do
             echo "===== $id ====="
             DETAIL="https://www.pgyer.com/ipa/ipa/$id/download"
             API="https://www.pgyer.com/ipa/api/download?id=$id"
-
-            curl -L --retry 2 --max-time 45 -sS               -A "$UA" -c "$COOKIE" -b "$COOKIE"               -o "/tmp/page-$id" -w 'PAGE_HTTP=%{http_code} PAGE_FINAL=%{url_effective} PAGE_SIZE=%{size_download}\n'               "$DETAIL" || true
-
-            echo -n 'PAGE_API_HREF='
-            grep -Eo "/ipa/api/download\?id=[^\"'<> ]+" "/tmp/page-$id" | head -1 || true
-            echo
-
-            rm -f /tmp/h /tmp/b
-            curl --max-time 45 -sS               -A "$UA" -e "$DETAIL" -c "$COOKIE" -b "$COOKIE"               -r 0-63 -D /tmp/h -o /tmp/b               -w 'API_HTTP=%{http_code} API_FINAL=%{url_effective} API_SIZE=%{size_download} API_TYPE=%{content_type}\n'               "$API" || true
-            sed -n '1,40p' /tmp/h | grep -Ei '^(HTTP/|location:|content-type:|content-length:|content-range:|x-|server:)'
-            echo -n 'BODY_HEX='
-            od -An -tx1 -N64 /tmp/b 2>/dev/null | tr -d '\n'
-            echo
-            echo -n 'BODY_ASCII='
-            strings -n 2 /tmp/b 2>/dev/null | head -5 | tr '\n' ' '
+            curl -L --max-time 45 -sS -A "$UA" -c "$COOKIE" -b "$COOKIE" -o /dev/null "$DETAIL" || true
+            curl --max-time 45 -sS -A "$UA" -e "$DETAIL" -c "$COOKIE" -b "$COOKIE" "$API" -o /tmp/body || true
+            echo "SIZE=$(wc -c < /tmp/body)"
+            cat /tmp/body
             echo
           done
