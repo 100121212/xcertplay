@@ -92,3 +92,25 @@ for name in sorted(names):
             code=getattr(e,"code",None)
             hdr=getattr(e,"headers",None)
             print("ERR",code,u,"LOC",hdr.get("Location") if hdr else None,repr(e))
+
+
+print("\n===== DOWNLOAD API PROBE =====")
+api = "https://www.pgyer.com/ipa/api/download?id=tw.app.idol"
+try:
+    b,h,final,status=fetch(api, BASE+"/ipa/ipa/tw.app.idol/download", "bytes=0-127")
+    print("API_STATUS",status)
+    print("API_FINAL",final)
+    for k,v in h.items():
+        if k.lower() in ["content-type","content-length","content-range","content-disposition","location","etag","last-modified","accept-ranges"]:
+            print("HDR",k,":",v)
+    print("API_HEX",b[:32].hex())
+    print("API_ASCII",repr(b[:64]))
+except Exception as e:
+    print("API_ERR",repr(e))
+    code=getattr(e,"code",None)
+    hdr=getattr(e,"headers",None)
+    if code is not None: print("API_CODE",code)
+    if hdr:
+        for k,v in hdr.items():
+            if k.lower() in ["content-type","content-length","content-range","content-disposition","location","etag","last-modified","accept-ranges"]:
+                print("ERR_HDR",k,":",v)
