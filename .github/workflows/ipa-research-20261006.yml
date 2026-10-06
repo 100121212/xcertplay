@@ -8,26 +8,13 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Inspect appdb 1.7 and query target
+      - name: Inspect appdb 1.7 swagger
         shell: bash
         run: |
           set +e
-          echo "=== APPDB 1.7 SPEC HEADERS ==="
-          curl -L --max-time 30 -sS -D /tmp/spec.headers 'https://api.dbservices.to/v1.7/spec/' -o /tmp/spec
-          cat /tmp/spec.headers
+          curl -L --max-time 30 -sS 'https://api.dbservices.to/v1.7/spec/' -o /tmp/spec
+          echo "=== SPEC HTML ==="
+          cat /tmp/spec
           echo
-          echo "=== APPDB 1.7 SPEC SEARCH LINES ==="
-          python3 -c "import re,pathlib; s=pathlib.Path('/tmp/spec').read_bytes().decode('utf-8','replace'); print('bytes',len(s)); [print(m.group(0)[:1200].replace(chr(10),' ')) for m in re.finditer(r'.{0,300}search.{0,700}',s,re.I|re.S)]"
-          echo
-          echo "=== APPDB 1.7 SAME-FORM TESTS ==="
-          for kv in 'bundle_ids=com.app.idol' 'trackids=851443895' 'query=育ててアイドルの卵' 'search=育ててアイドルの卵' 'q=育ててアイドルの卵'
-          do
-            key="${kv%%=*}"
-            val="${kv#*=}"
-            echo "--- POST multipart type=ios $key=$val"
-            curl -L --max-time 30 -sS -X POST -F 'type=ios' -F "$key=$val" 'https://api.dbservices.to/v1.7/search/' | head -c 120000
-            echo
-            echo "--- GET type=ios $key=$val"
-            curl -L --max-time 30 -sS --get --data-urlencode 'type=ios' --data-urlencode "$key=$val" 'https://api.dbservices.to/v1.7/search/' | head -c 120000
-            echo
-          done
+          echo "=== HREF SRC URL TOKENS ==="
+          grep -Eo '(https?://[^"[:space:]]+|[A-Za-z0-9_./-]+\.(json|yaml|yml|js))' /tmp/spec | sort -u
