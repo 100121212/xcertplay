@@ -1,4 +1,4 @@
-name: IPA PGYER compact probe 20261006
+name: IPA PGYER API probe 20261006
 on:
   push:
     paths:
@@ -8,40 +8,33 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Resolve PGYER IPA target
+      - name: Probe PGYER download API
         shell: bash
         run: |
           set +e
           BASE='https://www.pgyer.com/ipa/ipa/tw.app.idol'
+          API='https://www.pgyer.com/ipa/api/download?id=tw.app.idol'
           UA='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/154 Safari/537.36'
-          rm -f /tmp/cookies
+          rm -f /tmp/cookies /tmp/api.head /tmp/api.body /tmp/follow.head /tmp/follow.body
 
-          curl -L --max-time 30 -sS -A "$UA" -c /tmp/cookies "$BASE" -o /tmp/detail >/dev/null
+          curl -L --max-time 30 -sS -A "$UA" -c /tmp/cookies "$BASE" -o /dev/null
+          curl -L --max-time 30 -sS -A "$UA" -e "$BASE" -b /tmp/cookies -c /tmp/cookies "$BASE/download" -o /dev/null
 
-          probe() {
-            name="$1"
-            url="$2"
-            body="/tmp/$name.body"
-            head="/tmp/$name.head"
-            meta="/tmp/$name.meta"
-            rm -f "$body" "$head" "$meta"
+          echo "=== API WITHOUT FOLLOW ==="
+          curl --max-time 30 -sS             -A "$UA" -e "$BASE/download"             -b /tmp/cookies -c /tmp/cookies             -D /tmp/api.head -o /tmp/api.body             -w 'FINAL_URL=%{url_effective}\nHTTP_CODE=%{http_code}\nCONTENT_TYPE=%{content_type}\nSIZE=%{size_download}\n'             "$API"
+          sed -n '1,80p' /tmp/api.head
+          echo "BODY_SIZE=$(wc -c < /tmp/api.body)"
+          echo "BODY_HEX=$(od -An -tx1 -N128 /tmp/api.body | tr -d '\n')"
+          echo "BODY_TEXT_BEGIN"
+          head -c 4000 /tmp/api.body | strings -n 1
+          echo "BODY_TEXT_END"
+          echo
 
-            curl -L --max-time 45 -sS               -A "$UA"               -e "$BASE"               -b /tmp/cookies -c /tmp/cookies               -D "$head"               -o "$body"               -w 'FINAL_URL=%{url_effective}\nHTTP_CODE=%{http_code}\nCONTENT_TYPE=%{content_type}\nSIZE=%{size_download}\n'               "$url" > "$meta"
-
-            echo "===== $name ====="
-            cat "$meta"
-            echo "--- REDIRECTS"
-            grep -iE '^(HTTP/|location:)' "$head" || true
-            echo "--- TITLE"
-            grep -Eo '<title>[^<]+' "$body" | head -3 || true
-            echo "--- TARGET LINKS"
-            grep -Eo '(href|src)="[^"]+"' "$body" |               grep -Ei 'tw\.app\.idol|download|downloading|\.ipa|appmeme|apk\.live' |               sort -u | head -200 || true
-            echo "--- ABSOLUTE IPA/FILE URLS"
-            grep -Eo 'https?://[^"[:space:]<>\\]+' "$body" |               sed 's/&amp;/\&/g' |               grep -Ei '\.ipa([?&#]|$)|download|downloading|tw\.app\.idol' |               sort -u | head -200 || true
-            echo "--- SERIALIZED FIELDS"
-            grep -Eo '.{0,120}(downloadUrl|download_url|fileUrl|file_url|ipaUrl|ipa_url|objectName|object_name|oss[^":, ]*|downloading).{0,400}' "$body" |               head -200 || true
-            echo
-          }
-
-          probe download "$BASE/download"
-          probe downloading "$BASE/downloading"
+          echo "=== API FOLLOW + RANGE 0-127 ==="
+          curl -L --max-time 60 -sS             -A "$UA" -e "$BASE/download"             -b /tmp/cookies -c /tmp/cookies             -r 0-127             -D /tmp/follow.head -o /tmp/follow.body             -w 'FINAL_URL=%{url_effective}\nHTTP_CODE=%{http_code}\nCONTENT_TYPE=%{content_type}\nSIZE=%{size_download}\n'             "$API"
+          grep -iE '^(HTTP/|location:|content-type:|content-length:|content-range:|content-disposition:)' /tmp/follow.head || true
+          echo "BODY_SIZE=$(wc -c < /tmp/follow.body)"
+          echo "BODY_HEX=$(od -An -tx1 -N128 /tmp/follow.body | tr -d '\n')"
+          echo "BODY_STRINGS_BEGIN"
+          strings -n 2 /tmp/follow.body | head -40
+          echo "BODY_STRINGS_END"
