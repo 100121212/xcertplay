@@ -14,11 +14,10 @@ jobs:
           set +e
           PAGE='https://www.pgyer.com/ipa/ipa/tw.app.idol'
           curl -L --max-time 45 -sS "$PAGE" -o /tmp/page
-          echo "=== TARGET CONTEXT ==="
-          python3 -c "import pathlib,re; s=pathlib.Path('/tmp/page').read_text(errors='replace'); pats=['tw.app.idol','downloadUrl','download_url','downloadURL','ipaUrl','ipa_url','fileUrl','file_url','assets.apk.live']; for p in pats:  print('\n###',p); [print(s[max(0,m.start()-700):min(len(s),m.end()+1400)]) for m in list(re.finditer(re.escape(p),s,re.I))[:20]]"
-          echo
-          echo "=== PAGE JS CHUNK ==="
           JS='https://apkhub-static.appmeme.com/_next/static/chunks/app/ipa/(store)/ipa/%5Bid%5D/page-c67913adeec4210e.js'
           curl -L --max-time 45 -sS "$JS" -o /tmp/js
-          wc -c /tmp/js
-          python3 -c "import pathlib,re; s=pathlib.Path('/tmp/js').read_text(errors='replace'); pats=['download','api/','ipa','apk.live','appmeme','href']; for p in pats:  print('\n###',p); [print(s[max(0,m.start()-500):min(len(s),m.end()+1000)]) for m in list(re.finditer(re.escape(p),s,re.I))[:40]]"
+          echo "=== PAGE TARGET WINDOWS ==="
+          python3 -c "import pathlib,re; s=pathlib.Path('/tmp/page').read_text(errors='replace'); pats=['tw.app.idol','downloadUrl','download_url','downloadURL','ipaUrl','ipa_url','fileUrl','file_url','assets.apk.live']; [(print('### '+p), [print(s[max(0,m.start()-500):min(len(s),m.end()+1200)]) for m in list(re.finditer(re.escape(p),s,re.I))[:12]]) for p in pats]"
+          echo
+          echo "=== FULL PAGE JS ==="
+          cat /tmp/js
