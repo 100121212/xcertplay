@@ -1,0 +1,41 @@
+name: Target appdb 1.7 probe
+on:
+  push:
+    paths:
+      - ".github/workflows/ipa-appdb-tw-probe.yml"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query appdb 1.7 for target
+        shell: bash
+        run: |
+          set -u
+          BASE='https://api.dbservices.to/v1.7'
+
+          echo '=== OPENAPI search_index block ==='
+          curl -L --max-time 30 -sS "$BASE/spec/openapi.yaml" -o /tmp/openapi.yaml
+          grep -n -A180 -B10 '/search_index/' /tmp/openapi.yaml | head -240 || true
+          echo
+
+          query () {
+            label="$1"
+            key="$2"
+            val="$3"
+            echo "=== $label : $key=$val ==="
+            curl -L --max-time 30 -sS -X POST "$BASE/search_index/"               -H 'Content-Type: application/x-www-form-urlencoded'               --data-urlencode 'brand=appdb'               --data-urlencode 'lang=en'               --data-urlencode "$key=$val"               --data-urlencode 'start=0'               --data-urlencode 'length=200'               -o /tmp/r.json
+            python3 -c 'import json; d=json.load(open("/tmp/r.json")); print("success",d.get("success"),"total",d.get("total"),"errors",d.get("errors")); [print({k:x.get(k) for k in ["name","developer_name","version","type","source_name","universal_object_identifier","bundle_id","track_id","id"]}) for x in d.get("data",[])[:200]]'
+          }
+
+          query bundle_id bundle_id 'tw.app.idol'
+          query bundle_ids bundle_ids 'tw.app.idol'
+          query package_name package_name 'tw.app.idol'
+          query name_tw name '培養偶像之蛋'
+          query name_jp name '育ててアイドルの卵'
+          query name_idol_egg name 'アイドルの卵'
+          query dev_chronus developer_name 'Chronus Inc.'
+          query dev_chronus_x developer_name 'Chronus X Inc.'
+          query dev_gmo developer_name 'GMO PLAY MUSIC Inc.'
+          query track_id track_id '851443895'
+          query trackids trackids '851443895'
