@@ -1,4 +1,4 @@
-name: appdb 1.7 content type probe 20261007
+name: appdb 1.7 target search 20261007
 on:
   push:
     paths:
@@ -8,16 +8,19 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Read newContentType enum
+      - name: Search appdb 1.7 official and repo indexes
         shell: bash
         run: |
-          set -e
-          curl -L --connect-timeout 5 --max-time 20 -sS             'https://api.dbservices.to/v1.7/spec/openapi.yaml' -o /tmp/openapi.yaml
-          echo '===== newContentType ====='
-          line=$(grep -n '^    newContentType:' /tmp/openapi.yaml | head -1 | cut -d: -f1)
-          echo "LINE=$line"
-          if [ -n "$line" ]; then
-            start=$line
-            end=$((line+80))
-            sed -n "${start},${end}p" /tmp/openapi.yaml
-          fi
+          set +e
+          BASE='https://api.dbservices.to/v1.7/search_index/'
+          UA='Mozilla/5.0'
+
+          for type in official_app repo_app user_app enhancement
+          do
+            for name in               '育ててアイドルの卵'               '育ててアイドル'               'com.app.idol'               'Chronus'
+            do
+              echo "===== TYPE=$type NAME=$name ====="
+              curl -L --connect-timeout 5 --max-time 20 -sS -A "$UA"                 -X POST                 -H 'Content-Type: application/x-www-form-urlencoded'                 --data-urlencode "type=$type"                 --data-urlencode "name=$name"                 --data-urlencode 'brand=appdb'                 --data-urlencode 'lang=en'                 --data-urlencode 'start=0'                 --data-urlencode 'length=100'                 "$BASE"
+              echo
+            done
+          done
