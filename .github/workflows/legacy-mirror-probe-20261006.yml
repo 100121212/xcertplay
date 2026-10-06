@@ -1,0 +1,24 @@
+name: legacy mirror probe 20261006
+on:
+  push:
+    paths:
+      - ".github/workflows/legacy-mirror-probe-20261006.yml"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect legacy iOS catalog links
+        shell: bash
+        run: |
+          set +e
+          for u in             'https://www.slunecnice.cz/ios/sw/pei-yang-ou-xiang-zhi-dan/'             'https://www.slunecnice.cz/ios/sw/yuteteaidoruno-luan/'             'https://www.stahuj.cz/ios/zabava/yuteteaidoruno-luan/'
+          do
+            echo "===== $u ====="
+            curl -L --max-time 30 -sS -D /tmp/h "$u" -o /tmp/p
+            sed -n '1,30p' /tmp/h
+            echo "--- LINKS ---"
+            grep -Eoi 'href="[^"]+"' /tmp/p | sed 's/^href="//;s/"$//' | grep -Ei 'download|itunes|apple|ipa|redirect|soubor|stahn|app' | head -200
+            echo "--- TARGET CONTEXT ---"
+            grep -nEi 'download|stáhn|stahn|itunes|apple|ipa|851443895|tw\.app\.idol|36[,.]28|41[,.]51' /tmp/p | head -300
+          done
