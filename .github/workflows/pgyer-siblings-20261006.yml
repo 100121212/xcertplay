@@ -1,0 +1,25 @@
+name: PGYER sibling download probe 20261006
+on:
+  push:
+    paths:
+      - ".github/workflows/pgyer-siblings-20261006.yml"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compare target with sibling legacy apps
+        shell: bash
+        run: |
+          set +e
+          for id in tw.app.idol tw.app.unagi tw.app.yougyu tw.app.monster tw.apps.hiyoko tw.tatsujin.panya tw.tatsujin.izakaya; do
+            echo "===== $id ====="
+            rm -f /tmp/h /tmp/b
+            curl -L --max-time 40 -sS -D /tmp/h               -H 'User-Agent: Mozilla/5.0'               -H "Referer: https://www.pgyer.com/ipa/ipa/$id/download"               "https://www.pgyer.com/ipa/api/download?id=$id"               -o /tmp/b
+            sed -n '1,35p' /tmp/h
+            echo "SIZE $(wc -c < /tmp/b)"
+            echo "HEX $(od -An -tx1 -N24 /tmp/b | tr -d '\n')"
+            echo "STRINGS"
+            strings -n 4 /tmp/b | head -20
+            echo
+          done
