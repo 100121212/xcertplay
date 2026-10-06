@@ -1,62 +1,39 @@
-name: IPA fetch 20261007
+name: IPA API control probe 20261007
 on:
   push:
     paths:
       - ".github/workflows/ipa-fetch-20261007.yml"
 
 jobs:
-  fetch:
+  probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Resolve and fetch PGYER IPA
+      - name: Compare PGYER download API across apps
         shell: bash
         run: |
-          set -u
-          URL='https://www.pgyer.com/ipa/api/download?id=tw.app.idol'
+          set +e
           UA='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/154 Safari/537.36'
-          REFERER='https://www.pgyer.com/ipa/ipa/tw.app.idol/download'
+          COOKIE=/tmp/pgyer.cookies
 
-          echo '=== API HEADERS WITHOUT FOLLOW ==='
-          curl -sS --max-time 60 -A "$UA" -e "$REFERER"             -D /tmp/api.headers -o /tmp/api.body "$URL" || true
-          sed -n '1,80p' /tmp/api.headers
-          echo 'BODY_SIZE' "$(wc -c < /tmp/api.body 2>/dev/null || echo 0)"
-          head -c 500 /tmp/api.body 2>/dev/null || true
-          echo
+          for id in             'tw.app.idol'             'tw.app.monster'             'tw.app.yougyu'             'tw.apps.hiyoko'             'jp.recipe.yatai'             'com.openai.chat'             'com.google.Gmail'
+          do
+            echo "===== $id ====="
+            DETAIL="https://www.pgyer.com/ipa/ipa/$id/download"
+            API="https://www.pgyer.com/ipa/api/download?id=$id"
 
-          echo '=== FOLLOW DOWNLOAD ==='
-          curl -L --retry 5 --retry-delay 1 --retry-all-errors --max-time 300             -A "$UA" -e "$REFERER"             -D /tmp/follow.headers -o /tmp/target.bin             -w 'HTTP=%{http_code}\nFINAL=%{url_effective}\nSIZE=%{size_download}\nTYPE=%{content_type}\n'             "$URL" | tee /tmp/curl-meta.txt || true
+            curl -L --retry 2 --max-time 45 -sS               -A "$UA" -c "$COOKIE" -b "$COOKIE"               -o "/tmp/page-$id" -w 'PAGE_HTTP=%{http_code} PAGE_FINAL=%{url_effective} PAGE_SIZE=%{size_download}\n'               "$DETAIL" || true
 
-          echo '=== FOLLOW HEADERS ==='
-          sed -n '1,200p' /tmp/follow.headers
-          echo '=== FILE ==='
-          ls -lh /tmp/target.bin || true
-          file /tmp/target.bin || true
-          sha256sum /tmp/target.bin || true
-          echo -n 'FIRST64='
-          od -An -tx1 -N64 /tmp/target.bin | tr -d '\n'
-          echo
+            echo -n 'PAGE_API_HREF='
+            grep -Eo "/ipa/api/download\?id=[^\"'<> ]+" "/tmp/page-$id" | head -1 || true
+            echo
 
-          mkdir -p /tmp/out
-          if unzip -t /tmp/target.bin >/tmp/unzip-test.txt 2>&1; then
-            echo 'ZIP_OK=1'
-            unzip -l /tmp/target.bin | head -80
-            if unzip -l /tmp/target.bin | grep -q 'Payload/.*\.app/'; then
-              echo 'IPA_STRUCTURE=1'
-              cp /tmp/target.bin '/tmp/out/育ててアイドルの卵_1.0.1.ipa'
-            else
-              echo 'IPA_STRUCTURE=0'
-              cp /tmp/target.bin '/tmp/out/pgyer_download.zip'
-            fi
-          else
-            echo 'ZIP_OK=0'
-            cat /tmp/unzip-test.txt
-            cp /tmp/target.bin '/tmp/out/pgyer_response.bin'
-          fi
-      - name: Upload recovered package
-        uses: actions/upload-artifact@v4
-        with:
-          name: idol-egg-pgyer-recovery
-          path: /tmp/out/*
-          if-no-files-found: warn
-          compression-level: 0
-          retention-days: 1
+            rm -f /tmp/h /tmp/b
+            curl --max-time 45 -sS               -A "$UA" -e "$DETAIL" -c "$COOKIE" -b "$COOKIE"               -r 0-63 -D /tmp/h -o /tmp/b               -w 'API_HTTP=%{http_code} API_FINAL=%{url_effective} API_SIZE=%{size_download} API_TYPE=%{content_type}\n'               "$API" || true
+            sed -n '1,40p' /tmp/h | grep -Ei '^(HTTP/|location:|content-type:|content-length:|content-range:|x-|server:)'
+            echo -n 'BODY_HEX='
+            od -An -tx1 -N64 /tmp/b 2>/dev/null | tr -d '\n'
+            echo
+            echo -n 'BODY_ASCII='
+            strings -n 2 /tmp/b 2>/dev/null | head -5 | tr '\n' ' '
+            echo
+          done
