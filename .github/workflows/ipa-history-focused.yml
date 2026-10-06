@@ -1,0 +1,26 @@
+name: IPA focused history probe
+on:
+  push:
+    paths:
+      - ".github/workflows/ipa-history-focused.yml"
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Focused historical checks
+        shell: bash
+        run: |
+          set +e
+          echo '=== WAYBACK tw.app.idol exact/wildcard ==='
+          for q in 'tw.app.idol' '*tw.app.idol*' '*tw.app.idol*.ipa' '*851443895*'; do
+            echo "--- $q"
+            curl -L --max-time 35 -sS --get 'https://web.archive.org/cdx/search/cdx'               --data-urlencode "url=$q"               --data-urlencode 'output=json'               --data-urlencode 'fl=timestamp,original,statuscode,mimetype,length'               --data-urlencode 'filter=statuscode:200'               --data-urlencode 'limit=300' | head -c 120000
+            echo
+          done
+          echo '=== CZECH DOWNLOAD TARGETS ==='
+          for u in             'https://www.stahuj.cz/ios/zabava/yuteteaidoruno-luan/'             'https://www.slunecnice.cz/ios/sw/yuteteaidoruno-luan/'             'https://www.slunecnice.cz/ios/sw/pei-yang-ou-xiang-zhi-dan/'
+          do
+            echo "--- $u"
+            curl -L --max-time 30 -sS "$u" -o /tmp/p
+            grep -Eoi 'href="[^"]+"' /tmp/p | sed 's/^href="//;s/"$//' | grep -Ei 'itunes|apps\.apple|download|851443895|idol' | head -100
+          done
