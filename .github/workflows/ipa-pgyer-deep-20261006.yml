@@ -1,14 +1,14 @@
-name: IPA PGYER deep probe 20261006
+name: IPA PGYER step probe 20261007
 on:
   push:
     paths:
       - ".github/workflows/ipa-pgyer-deep-20261006.yml"
-      - "tools/ipa_pgyer_probe_20261006.py"
+      - "tools/ipa_pgyer_steps_probe_20261007.py"
 
 jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Trace PGYER IPA download implementation
-        run: python3 tools/ipa_pgyer_probe_20261006.py
+      - name: Trace PGYER download steps
+        run: python3 tools/ipa_pgyer_steps_probe_20261007.py
