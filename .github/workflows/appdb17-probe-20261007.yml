@@ -1,4 +1,4 @@
-name: appdb 1.7 target search 20261007
+name: Wayback raw record probe 20261007
 on:
   push:
     paths:
@@ -8,19 +8,19 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Search appdb 1.7 official and repo indexes
+      - name: Query CDX raw record coordinates
         shell: bash
         run: |
           set +e
-          BASE='https://api.dbservices.to/v1.7/search_index/'
-          UA='Mozilla/5.0'
+          TARGET='https://itunes.apple.com/jp/app/yuteteaidoruno-luan/id851443895?mt=8'
+          echo '===== CDX EXTENDED ====='
+          curl -G -L --connect-timeout 5 --max-time 20 -sS             'https://web.archive.org/cdx/search/cdx'             --data-urlencode "url=$TARGET"             --data-urlencode 'output=json'             --data-urlencode 'filter=statuscode:200'             --data-urlencode 'fl=urlkey,timestamp,original,mimetype,statuscode,digest,length,offset,filename'             --data-urlencode 'collapse=digest'             --data-urlencode 'limit=50'
+          echo
 
-          for type in official_app repo_app user_app enhancement
-          do
-            for name in               '育ててアイドルの卵'               '育ててアイドル'               'com.app.idol'               'Chronus'
-            do
-              echo "===== TYPE=$type NAME=$name ====="
-              curl -L --connect-timeout 5 --max-time 20 -sS -A "$UA"                 -X POST                 -H 'Content-Type: application/x-www-form-urlencoded'                 --data-urlencode "type=$type"                 --data-urlencode "name=$name"                 --data-urlencode 'brand=appdb'                 --data-urlencode 'lang=en'                 --data-urlencode 'start=0'                 --data-urlencode 'length=100'                 "$BASE"
-              echo
-            done
-          done
+          echo '===== CDX TXT ====='
+          curl -G -L --connect-timeout 5 --max-time 20 -sS             'https://web.archive.org/cdx/search/cdx'             --data-urlencode "url=$TARGET"             --data-urlencode 'output=txt'             --data-urlencode 'filter=statuscode:200'             --data-urlencode 'fl=urlkey,timestamp,original,mimetype,statuscode,digest,length,offset,filename'             --data-urlencode 'collapse=digest'             --data-urlencode 'limit=50'
+          echo
+
+          echo '===== AVAILABILITY API ====='
+          curl -L --connect-timeout 5 --max-time 20 -sS             "https://archive.org/wayback/available?url=$(python3 -c 'import urllib.parse; print(urllib.parse.quote("'"$TARGET"'",safe=""))')&timestamp=20150913014401"
+          echo
