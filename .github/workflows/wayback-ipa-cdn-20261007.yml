@@ -1,0 +1,66 @@
+name: Wayback IPA CDN probe 20261007
+on:
+  push:
+    paths:
+      - ".github/workflows/wayback-ipa-cdn-20261007.yml"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query Wayback CDX for target CDN and download URLs
+        shell: bash
+        run: |
+          set +e
+          python3 - <<'PY'
+          import urllib.request, urllib.parse, time
+
+          queries=[
+            "assets.apk.live/tw.app.idol*",
+            "assets.appmeme.com/tw.app.idol*",
+            "www.pgyer.com/ipa/api/download?id=tw.app.idol*",
+            "www.pgyer.com/ipa/ipa/tw.app.idol*",
+            "pgyer.com/ipa/api/download?id=tw.app.idol*",
+            "pgyer.com/ipa/ipa/tw.app.idol*",
+          ]
+          base="https://web.archive.org/cdx/search/cdx"
+          for q in queries:
+              print("\n===== CDX",q,"=====")
+              params={
+                  "url":q,
+                  "output":"json",
+                  "fl":"timestamp,original,statuscode,mimetype,digest,length,redirect",
+                  "collapse":"digest",
+                  "limit":"2000",
+                  "filter":"statuscode:200|statuscode:301|statuscode:302|statuscode:307|statuscode:308"
+              }
+              url=base+"?"+urllib.parse.urlencode(params)
+              for attempt in range(3):
+                  try:
+                      req=urllib.request.Request(url,headers={"User-Agent":"Mozilla/5.0"})
+                      with urllib.request.urlopen(req,timeout=90) as r:
+                          raw=r.read().decode("utf-8","replace")
+                          print("HTTP",r.status,"BYTES",len(raw))
+                          print(raw[:500000])
+                          break
+                  except Exception as e:
+                      print("ATTEMPT",attempt+1,"ERR",repr(e))
+                      time.sleep(3)
+
+          # Availability API for direct filename guesses.
+          guesses=[
+            "https://assets.apk.live/tw.app.idol--ipa-1_0_1.ipa",
+            "https://assets.appmeme.com/tw.app.idol--ipa-1_0_1.ipa",
+            "https://assets.apk.live/tw.app.idol--ipa-1.0.1.ipa",
+            "https://assets.appmeme.com/tw.app.idol--ipa-1.0.1.ipa",
+            "https://www.pgyer.com/ipa/api/download?id=tw.app.idol",
+          ]
+          for g in guesses:
+              print("\n===== AVAIL",g,"=====")
+              u="https://archive.org/wayback/available?"+urllib.parse.urlencode({"url":g})
+              try:
+                  req=urllib.request.Request(u,headers={"User-Agent":"Mozilla/5.0"})
+                  with urllib.request.urlopen(req,timeout=60) as r:
+                      print(r.read().decode("utf-8","replace")[:50000])
+              except Exception as e: print("ERR",repr(e))
+          PY
