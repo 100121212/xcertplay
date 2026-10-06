@@ -1,0 +1,69 @@
+name: appdb repo search target 20261007
+on:
+  push:
+    paths:
+      - ".github/workflows/appdb-repo-target-20261007.yml"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Search appdb repo and official indexes
+        shell: bash
+        run: |
+          set -e
+          python3 - <<'PY'
+          import json, urllib.request, urllib.parse
+
+          endpoint="https://api.dbservices.to/v1.7/search_index/"
+          tests=[]
+          names=["育ててアイドルの卵","培養偶像之蛋","tw.app.idol","idol"]
+          for typ in ["repo_app","official_app"]:
+              for name in names:
+                  tests.append((f"{typ}:{name}",{
+                      "brand":"appdb","lang":"en","type":typ,
+                      "compatibility":"ios","name":name,"length":"100"
+                  }))
+              for dev in ["Chronus Inc.","Chronus App Inc.","Chronus","Chronus X Inc."]:
+                  tests.append((f"{typ}:dev:{dev}",{
+                      "brand":"appdb","lang":"en","type":typ,
+                      "compatibility":"ios","developer_name":dev,"length":"100"
+                  }))
+
+          # Controls prove search semantics.
+          tests += [
+              ("control-official-chatgpt",{
+                  "brand":"appdb","lang":"en","type":"official_app",
+                  "compatibility":"ios","name":"ChatGPT","length":"10"
+              }),
+              ("control-repo-instagram",{
+                  "brand":"appdb","lang":"en","type":"repo_app",
+                  "compatibility":"ios","name":"Instagram","length":"10"
+              }),
+          ]
+
+          for label,form in tests:
+              data=urllib.parse.urlencode(form).encode()
+              req=urllib.request.Request(endpoint,data=data,headers={
+                  "User-Agent":"Mozilla/5.0",
+                  "Content-Type":"application/x-www-form-urlencoded",
+                  "Accept":"application/json"
+              },method="POST")
+              print("\n###",label)
+              try:
+                  with urllib.request.urlopen(req,timeout=45) as r:
+                      raw=r.read().decode("utf-8","replace")
+                      print("HTTP",r.status,"LEN",len(raw))
+                      try:
+                          obj=json.loads(raw)
+                          print("success",obj.get("success"),"total",obj.get("total"))
+                          data_obj=obj.get("data")
+                          print(json.dumps(data_obj,ensure_ascii=False,indent=2)[:100000])
+                      except Exception:
+                          print(raw[:100000])
+              except Exception as e:
+                  print("ERR",repr(e))
+                  if hasattr(e,"read"):
+                      try: print(e.read().decode("utf-8","replace")[:20000])
+                      except: pass
+          PY
