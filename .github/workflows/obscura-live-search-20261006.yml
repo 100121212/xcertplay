@@ -1,0 +1,34 @@
+name: iOS Obscura live search 20261006
+on:
+  push:
+    paths:
+      - ".github/workflows/obscura-live-search-20261006.yml"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Search live Obscura mirrors
+        shell: bash
+        run: |
+          set +e
+          for host in iosapps.litten.ca iphoneosobscura.litten.ca; do
+            echo "========== HOST $host =========="
+            echo "--- STATS ---"
+            curl -L --max-time 60 -sS -H 'User-Agent: Mozilla/5.0' "https://$host/stats" |               grep -Eo 'App Count[^<]{0,100}|Version Count[^<]{0,100}|URL Count[^<]{0,100}' | head -20
+            for q in               'tw.app.idol'               'idol'               'Chronus'               '育ててアイドルの卵'               '培養偶像之蛋'
+            do
+              enc=$(python3 -c 'import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1],safe=""))' "$q")
+              echo "===== SEARCH $q ====="
+              curl -L --max-time 60 -sS -D /tmp/h -H 'User-Agent: Mozilla/5.0'                 "https://$host/search/$enc" -o /tmp/p
+              sed -n '1,12p' /tmp/h
+              echo "BYTES $(wc -c < /tmp/p)"
+              grep -Eo '/getAppVersions/[^"<]+' /tmp/p | sort -u | head -100
+              grep -Eo '<center>[^<]+' /tmp/p | sed 's/<center>//' | head -100
+              grep -nEi 'idol|chronus|育てて|培養|Couldn.t find|bundle' /tmp/p | head -100
+            done
+            echo "--- SITEMAP TARGET FILTER ---"
+            curl -L --max-time 90 -sS -H 'User-Agent: Mozilla/5.0' "https://$host/sitemap" -o /tmp/sitemap
+            echo "SITEMAP_BYTES $(wc -c < /tmp/sitemap)"
+            grep -Ei 'idol|chronus' /tmp/sitemap | head -200
+          done
