@@ -1,0 +1,55 @@
+name: IPA PGYER deep probe 20261006
+on:
+  push:
+    paths:
+      - ".github/workflows/ipa-pgyer-deep-20261006.yml"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trace PGYER IPA download implementation
+        shell: bash
+        run: |
+          set +e
+          PAGE='https://www.pgyer.com/ipa/ipa/tw.app.idol'
+          curl -L --max-time 45 -sS "$PAGE" -o /tmp/page
+
+          echo "=== PAGE DOWNLOAD CONTEXT ==="
+          python3 -c "import pathlib,re; s=pathlib.Path('/tmp/page').read_text(errors='replace'); [(print(s[max(0,m.start()-800):min(len(s),m.end()+1600)]+'\n---')) for m in list(re.finditer('download',s,re.I))[:40]]"
+          echo
+
+          echo "=== FETCH ALL JS CHUNKS ==="
+          grep -Eo 'https://apkhub-static\.appmeme\.com/[^"[:space:]<>]+\.js' /tmp/page | sort -u > /tmp/jsurls
+          cat /tmp/jsurls
+          : > /tmp/alljs
+          while IFS= read -r u; do
+            echo "FETCH $u"
+            curl -L --max-time 30 -sS "$u" >> /tmp/alljs
+            printf '\n' >> /tmp/alljs
+          done < /tmp/jsurls
+          echo "ALLJS_BYTES $(wc -c < /tmp/alljs)"
+          echo
+
+          echo "=== JS URL CANDIDATES ==="
+          grep -Eo 'https?://[^"'''[:space:]<>)]+' /tmp/alljs | sort -u | grep -Ei 'download|ipa|appmeme|apk\.live|api|oss|file' | head -500
+          echo
+
+          echo "=== JS DOWNLOAD/API CONTEXT ==="
+          python3 -c "import pathlib,re; s=pathlib.Path('/tmp/alljs').read_text(errors='replace'); pats=['download','oss_object','assets.apk.live','.ipa','appmeme.com','fetch(','axios','api/']; [(print('### '+p), [print(s[max(0,m.start()-300):min(len(s),m.end()+700)]) for m in list(re.finditer(re.escape(p),s,re.I))[:80]]) for p in pats]"
+          echo
+
+          echo "=== DIRECT OBJECT CANDIDATES ==="
+          for u in             'https://assets.apk.live/tw.app.idol--ipa-1_0_1.ipa'             'https://assets.appmeme.com/tw.app.idol--ipa-1_0_1.ipa'             'https://assets.apk.live/tw.app.idol--ipa-1_0_1'             'https://assets.appmeme.com/tw.app.idol--ipa-1_0_1'             'https://download.apk.live/tw.app.idol--ipa-1_0_1.ipa'             'https://download.appmeme.com/tw.app.idol--ipa-1_0_1.ipa'
+          do
+            echo "--- $u"
+            rm -f /tmp/h /tmp/b
+            curl -L --max-time 25 -sS -D /tmp/h -r 0-31 "$u" -o /tmp/b
+            sed -n '1,30p' /tmp/h
+            echo -n 'BODY_HEX '
+            od -An -tx1 -N32 /tmp/b | tr -d '\n'
+            echo
+            echo -n 'BODY_ASCII '
+            strings -n 2 /tmp/b | head -5
+            echo
+          done
