@@ -1,4 +1,4 @@
-name: appdb 1.7 content type probe 20261006
+name: iTunes historical metadata probe 20261006
 on:
   push:
     paths:
@@ -8,21 +8,31 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Read content type enum and query target
+      - name: Recover historical iTunes metadata for 851443895
         shell: bash
         run: |
           set +e
-          BASE='https://api.dbservices.to/v1.7'
-          curl -L --max-time 30 -sS "$BASE/spec/openapi.yaml" -o /tmp/openapi.yaml
-
-          echo "=== newContentType ==="
-          grep -n -A30 -B3 'newContentType:' /tmp/openapi.yaml | head -80
-
-          echo "=== search_index no type ==="
-          for name in             '育ててアイドルの卵'             '851443895'             'tw.app.idol'             'com.app.idol'
+          echo "=== CURRENT LOOKUP ==="
+          for u in             'https://itunes.apple.com/lookup?id=851443895&country=jp'             'https://itunes.apple.com/jp/lookup?id=851443895'             'https://itunes.apple.com/lookup?id=851443895'
           do
-            echo "--- name=$name"
-            curl -L --max-time 30 -sS -X POST               --data-urlencode "name=$name"               --data-urlencode 'compatibility=ios'               --data-urlencode 'length=100'               "$BASE/search_index/" | head -c 160000
+            echo "--- $u"
+            curl -L --max-time 30 -sS "$u" | head -c 50000
+            echo
+          done
+
+          echo "=== WAYBACK CDX LOOKUP URLS ==="
+          urls=(
+            'itunes.apple.com/lookup?id=851443895*'
+            'itunes.apple.com/jp/lookup?id=851443895*'
+            'itunes.apple.com/*/lookup?id=851443895*'
+            'itunes.apple.com/*/app/*/id851443895*'
+            'apps.apple.com/*/app/*/id851443895*'
+            'itunes.apple.com/WebObjects/MZStore.woa/wa/viewSoftware?id=851443895*'
+          )
+          for u in "${urls[@]}"
+          do
+            echo "--- $u"
+            curl -L --max-time 60 -sS -G 'https://web.archive.org/cdx/search/cdx'               --data-urlencode "url=$u"               --data-urlencode 'output=json'               --data-urlencode 'fl=timestamp,original,statuscode,mimetype,digest,length'               --data-urlencode 'filter=statuscode:200'               --data-urlencode 'collapse=digest'               --data-urlencode 'limit=100' | head -c 150000
             echo
           done
           exit 0
