@@ -1,0 +1,14 @@
+name: appdb 1.7 probe 20261006
+on:
+  push:
+    paths:
+      - "tools/appdb_probe_20261006.py"
+      - ".github/workflows/appdb-probe-20261006.yml"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe appdb 1.7
+        run: python3 tools/appdb_probe_20261006.py
