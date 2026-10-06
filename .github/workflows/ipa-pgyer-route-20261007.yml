@@ -1,0 +1,54 @@
+name: IPA PGYER route probe 20261007
+on:
+  push:
+    paths:
+      - ".github/workflows/ipa-pgyer-route-20261007.yml"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe PGYER download route chain
+        shell: bash
+        run: |
+          set +e
+          python3 - <<'PY'
+          import urllib.request, urllib.error, re, json
+          UA={"User-Agent":"Mozilla/5.0"}
+          urls=[
+            "https://www.pgyer.com/ipa/ipa/tw.app.idol/download",
+            "https://www.pgyer.com/ipa/ipa/tw.app.idol/downloading",
+          ]
+          for u in urls:
+              print("\n===== URL",u,"=====")
+              req=urllib.request.Request(u,headers=UA)
+              try:
+                  with urllib.request.urlopen(req,timeout=40) as r:
+                      b=r.read()
+                      print("STATUS",r.status)
+                      print("FINAL",r.geturl())
+                      print("TYPE",r.headers.get("Content-Type"))
+                      print("LEN",len(b))
+                      print("LOCATION",r.headers.get("Location"))
+                      s=b.decode("utf-8","replace")
+                      print("TITLE", re.findall(r"<title[^>]*>(.*?)</title>",s,re.I|re.S)[:3])
+                      print("--- LINKS ---")
+                      links=sorted(set(re.findall(r'https?://[^"\'<>\s]+|href=["\']([^"\']+)',s,re.I)))
+                      # normalize tuple-ish regex output
+                      for m in re.finditer(r'(?:href|src)=["\']([^"\']+)["\']',s,re.I):
+                          x=m.group(1)
+                          if any(k in x.lower() for k in ["download","ipa","appmeme","apk.live","pgyer","file","oss"]):
+                              print(x)
+                      for m in re.finditer(r'https?://[^"\'<>\s]+',s,re.I):
+                          x=m.group(0)
+                          if any(k in x.lower() for k in ["download","ipa","appmeme","apk.live","pgyer","file","oss"]):
+                              print(x)
+                      print("--- TARGET CONTEXTS ---")
+                      for p in ["downloading","download","tw.app.idol",".ipa","token","url","oss","object"]:
+                          for m in list(re.finditer(re.escape(p),s,re.I))[:40]:
+                              print("###",p, s[max(0,m.start()-350):min(len(s),m.end()+1000)].replace("\n"," ")[:1600])
+              except urllib.error.HTTPError as e:
+                  print("HTTPERR",e.code,e.headers.get("Location"),e.read(1000))
+              except Exception as e:
+                  print("ERR",repr(e))
+          PY
