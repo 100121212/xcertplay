@@ -1,51 +1,14 @@
-name: IPA archive identity probe 20261006
+name: IPA PGYER deep probe 20261006
 on:
   push:
     paths:
       - ".github/workflows/ipa-pgyer-deep-20261006.yml"
+      - "tools/ipa_pgyer_probe_20261006.py"
 
 jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Resolve App Store identity and Internet Archive metadata
-        shell: bash
-        run: |
-          set +e
-
-          echo "=== OLD DIRECTORY APP STORE LINKS ==="
-          for u in             'https://www.slunecnice.cz/ios/sw/pei-yang-ou-xiang-zhi-dan/'             'https://www.slunecnice.cz/ios/sw/yuteteaidoruno-luan/'             'https://www.pgyer.com/ipa/ipa/tw.app.idol'
-          do
-            echo "--- $u"
-            curl -L --max-time 40 -sS "$u" -o /tmp/page
-            echo "BYTES=$(wc -c < /tmp/page)"
-            grep -Eo 'https?://[^"[:space:]<>\\]+' /tmp/page |               sed 's/&amp;/\&/g' |               grep -Ei 'itunes\.apple\.com|apps\.apple\.com|appstore|851443895|tw\.app\.idol' |               sort -u | head -200 || true
-            echo "NUMERIC IDS NEAR APPLE/BUNDLE TERMS"
-            grep -Eoi '.{0,180}(itunes|app.?store|track.?id|bundle.?id|tw\.app\.idol|851443895).{0,400}' /tmp/page | head -100 || true
-            echo
-          done
-
-          echo "=== INTERNET ARCHIVE ADVANCED SEARCH ==="
-          queries=(
-            '"tw.app.idol"'
-            '"851443895"'
-            '"培養偶像之蛋"'
-            '"育ててアイドルの卵"'
-            '"tw.app.idol" AND mediatype:software'
-            '"培養偶像之蛋" AND mediatype:software'
-            '"育ててアイドルの卵" AND mediatype:software'
-          )
-          for q in "${queries[@]}"
-          do
-            echo "--- QUERY $q"
-            curl -L --max-time 45 -sS -G 'https://archive.org/advancedsearch.php'               --data-urlencode "q=$q"               --data-urlencode 'fl[]=identifier'               --data-urlencode 'fl[]=title'               --data-urlencode 'fl[]=description'               --data-urlencode 'fl[]=mediatype'               --data-urlencode 'fl[]=collection'               --data-urlencode 'rows=100'               --data-urlencode 'page=1'               --data-urlencode 'output=json' |               python3 -c "import json,sys; d=json.load(sys.stdin); print('numFound',d.get('response',{}).get('numFound')); [print(x) for x in d.get('response',{}).get('docs',[])]"
-            echo
-          done
-
-          echo "=== WAYBACK CDX KNOWN APP URL FORMS ==="
-          for u in             'itunes.apple.com/*/app/id851443895*'             'apps.apple.com/*/app/id851443895*'             'itunes.apple.com/*/app/*/id851443895*'
-          do
-            echo "--- $u"
-            curl -L --max-time 45 -sS -G 'https://web.archive.org/cdx/search/cdx'               --data-urlencode "url=$u"               --data-urlencode 'output=json'               --data-urlencode 'fl=timestamp,original,statuscode,mimetype,digest'               --data-urlencode 'filter=statuscode:200'               --data-urlencode 'collapse=digest' | head -c 120000
-            echo
-          done
+      - uses: actions/checkout@v4
+      - name: Trace PGYER IPA download implementation
+        run: python3 tools/ipa_pgyer_probe_20261006.py
