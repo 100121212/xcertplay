@@ -1,0 +1,41 @@
+name: IPA PGYER control probe 20261007
+on:
+  push:
+    paths:
+      - ".github/workflows/ipa-pgyer-control-20261007.yml"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compare target with known app
+        shell: bash
+        run: |
+          set +e
+          for id in tw.app.idol com.openai.chat
+          do
+            echo "================ $id ================"
+            rm -f /tmp/cookies /tmp/page /tmp/api /tmp/h1 /tmp/h2
+
+            PAGE="https://www.pgyer.com/ipa/ipa/$id/download"
+            API="https://www.pgyer.com/ipa/api/download?id=$id"
+
+            echo "--- visit download page ---"
+            curl -L --max-time 45 -sS               -A 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/154 Safari/537.36'               -c /tmp/cookies -b /tmp/cookies               -D /tmp/h1               "$PAGE" -o /tmp/page
+            sed -n '1,30p' /tmp/h1
+            echo "PAGE_SIZE $(wc -c < /tmp/page)"
+            echo "COOKIES"
+            cat /tmp/cookies
+
+            echo "--- API with cookies/referer/browser headers ---"
+            curl -L --max-time 90 -sS               -A 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/154 Safari/537.36'               -b /tmp/cookies -c /tmp/cookies               -e "$PAGE"               -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'               -H 'Sec-Fetch-Dest: document'               -H 'Sec-Fetch-Mode: navigate'               -H 'Sec-Fetch-Site: same-origin'               -D /tmp/h2               -w '\nFINAL_URL=%{url_effective}\nHTTP_CODE=%{http_code}\nCONTENT_TYPE=%{content_type}\nSIZE=%{size_download}\n'               "$API" -o /tmp/api
+            sed -n '1,80p' /tmp/h2
+            file /tmp/api || true
+            sha256sum /tmp/api || true
+            echo -n 'FIRST64 '; od -An -tx1 -N64 /tmp/api | tr -d '\n'; echo
+            if [ "$(wc -c < /tmp/api)" -lt 20000 ]; then
+              echo "BODY:"
+              cat /tmp/api
+              echo
+            fi
+          done
