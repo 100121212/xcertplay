@@ -1,0 +1,82 @@
+name: appdb 1.7 target query 20261007
+on:
+  push:
+    paths:
+      - ".github/workflows/appdb17-target-query-20261007.yml"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Parse OpenAPI and query appdb target
+        shell: bash
+        run: |
+          set -e
+          python3 -m pip install --quiet pyyaml
+          python3 - <<'PY'
+          import json, urllib.request, urllib.parse, yaml
+
+          spec_url = "https://api.dbservices.to/v1.7/spec/openapi.yaml"
+          with urllib.request.urlopen(spec_url, timeout=30) as r:
+              spec = yaml.safe_load(r.read())
+
+          op = spec["paths"]["/search_index/"]["post"]
+          schema = op["requestBody"]["content"]["application/x-www-form-urlencoded"]["schema"]
+          props = schema.get("properties", {})
+          print("=== SEARCH_INDEX SCHEMA ===")
+          print("required:", schema.get("required"))
+          for k,v in props.items():
+              print(k, json.dumps(v, ensure_ascii=False))
+
+          nct = spec.get("components",{}).get("schemas",{}).get("newContentType",{})
+          print("\n=== newContentType ===")
+          print(json.dumps(nct, ensure_ascii=False, indent=2))
+
+          enum = nct.get("enum", [])
+          ios_type = None
+          for candidate in ["ios","iphone","ipa","iOS"]:
+              if candidate in enum:
+                  ios_type = candidate
+                  break
+          print("chosen_ios_type:", ios_type)
+
+          base = "https://api.dbservices.to/v1.7/search_index/"
+          queries = [
+              ("jp-name", {"name":"育ててアイドルの卵"}),
+              ("zh-name", {"name":"培養偶像之蛋"}),
+              ("bundle-as-name", {"name":"tw.app.idol"}),
+              ("developer", {"developer_name":"Chronus Inc."}),
+              ("developer-app", {"developer_name":"Chronus App Inc."}),
+              ("app-id-as-name", {"name":"851443895"}),
+          ]
+          if "bundle_id" in props:
+              queries.append(("bundle-id", {"bundle_id":"tw.app.idol"}))
+          if "trackid" in props:
+              queries.append(("trackid", {"trackid":"851443895"}))
+
+          for label, q in queries:
+              form = {"brand":"appdb","lang":"en", **q}
+              if ios_type:
+                  form["type"] = ios_type
+              data = urllib.parse.urlencode(form).encode()
+              req = urllib.request.Request(
+                  base, data=data,
+                  headers={
+                      "User-Agent":"Mozilla/5.0",
+                      "Content-Type":"application/x-www-form-urlencoded",
+                      "Accept":"application/json"
+                  },
+                  method="POST"
+              )
+              print("\n=== QUERY", label, form, "===")
+              try:
+                  with urllib.request.urlopen(req, timeout=45) as r:
+                      b = r.read()
+                      print("status", r.status, "bytes", len(b), "content-type", r.headers.get("Content-Type"))
+                      print(b.decode("utf-8","replace")[:200000])
+              except Exception as e:
+                  print("ERROR", repr(e))
+                  if hasattr(e, "read"):
+                      try: print(e.read().decode("utf-8","replace")[:20000])
+                      except: pass
+          PY
