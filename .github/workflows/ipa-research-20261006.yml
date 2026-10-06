@@ -1,0 +1,46 @@
+name: IPA research probe 20261006
+on:
+  push:
+    paths:
+      - ".github/workflows/ipa-research-20261006.yml"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe public IPA indexes and archives
+        shell: bash
+        run: |
+          set +e
+          echo "=== STARFILES bundle_id com.app.idol ==="
+          curl -L --max-time 30 -sS 'https://api2.starfiles.co/bundle_id/com.app.idol' | head -c 120000
+          echo
+          echo "=== STARFILES search com.app.idol ==="
+          curl -L --max-time 30 -sS 'https://api2.starfiles.co/files?public=true&extension=ipa&group=bundle_id&collapse=true&limit=200&search=com.app.idol' | head -c 120000
+          echo
+          echo "=== STARFILES search 851443895 ==="
+          curl -L --max-time 30 -sS 'https://api2.starfiles.co/files?public=true&extension=ipa&group=bundle_id&collapse=true&limit=200&search=851443895' | head -c 120000
+          echo
+          echo "=== STARFILES search Japanese title ==="
+          curl -L --max-time 30 -sS --get 'https://api2.starfiles.co/files'             --data-urlencode 'public=true' --data-urlencode 'extension=ipa'             --data-urlencode 'group=bundle_id' --data-urlencode 'collapse=true'             --data-urlencode 'limit=200' --data-urlencode 'search=育ててアイドルの卵' | head -c 120000
+          echo
+
+          for kv in             'bundle_ids=com.app.idol'             'trackids=851443895'             'query=育ててアイドルの卵'             'search=育ててアイドルの卵'             'q=育ててアイドルの卵'
+          do
+            key="${kv%%=*}"
+            val="${kv#*=}"
+            echo "=== APPDB ios $key=$val ==="
+            curl -L --max-time 30 -sS -X POST               -F 'type=ios' -F "$key=$val"               'https://api.dbservices.to/v1.6/search/' | head -c 120000
+            echo
+          done
+
+          for u in             'http://app.iwww.jp/apps/idol/help.html'             'http://app.iwww.jp/apps/idol/fin.html'             'http://app.iwww.jp/apps/idol/'
+          do
+            echo "=== ARQUIVO versionHistory $u ==="
+            curl -L --max-time 40 -sS --get 'https://arquivo.pt/textsearch'               --data-urlencode "versionHistory=$u"               --data-urlencode 'maxItems=50'               --data-urlencode 'prettyPrint=true' | head -c 120000
+            echo
+          done
+
+          echo "=== ARQUIVO CDX prefix ==="
+          curl -L --max-time 40 -sS 'https://arquivo.pt/wayback/cdx?url=app.iwww.jp%2Fapps%2Fidol%2F*&output=json' | head -c 120000
+          echo
