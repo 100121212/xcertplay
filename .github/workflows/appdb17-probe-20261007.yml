@@ -1,4 +1,4 @@
-name: appdb 1.7 API probe 20261007
+name: appdb 1.7 target search 20261007
 on:
   push:
     paths:
@@ -8,30 +8,16 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Read appdb 1.7 OpenAPI and query target
+      - name: Search appdb 1.7 index for target
         shell: bash
         run: |
           set +e
+          BASE='https://api.dbservices.to/v1.7/search_index/'
           UA='Mozilla/5.0'
-          curl -L --connect-timeout 5 --max-time 20 -sS -A "$UA"             'https://api.dbservices.to/v1.7/spec/openapi.yaml' -o /tmp/openapi.yaml
 
-          echo '===== OPENAPI SIZE ====='
-          wc -c /tmp/openapi.yaml
-          echo '===== SEARCH ENDPOINT CONTEXT ====='
-          grep -n -E '^  /search/?|bundle_ids|trackids|query:|search:|type:' /tmp/openapi.yaml | head -300
-          echo '===== SEARCH BLOCK ====='
-          awk '
-            /^  \/search\/?/ {p=1}
-            p {print}
-            p && /^  \/[^s]/ {exit}
-          ' /tmp/openapi.yaml | head -1200
-
-          echo '===== DIRECT TESTS ====='
-          for spec in             'bundle_ids|com.app.idol'             'trackids|851443895'             'query|育ててアイドルの卵'
+          for name in             '育ててアイドルの卵'             '育ててアイドル'             'アイドルの卵'             'com.app.idol'             'idol'             'Chronus'
           do
-            key="${spec%%|*}"
-            val="${spec#*|}"
-            echo "--- $key=$val"
-            curl -L --connect-timeout 5 --max-time 20 -sS -A "$UA"               -X POST -F 'type=ios' -F "$key=$val"               'https://api.dbservices.to/v1.7/search/'
+            echo "===== NAME=$name ====="
+            curl -L --connect-timeout 5 --max-time 20 -sS -A "$UA"               -X POST               -H 'Content-Type: application/x-www-form-urlencoded'               --data-urlencode 'type=ios'               --data-urlencode "name=$name"               --data-urlencode 'brand=appdb'               --data-urlencode 'lang=en'               --data-urlencode 'start=0'               --data-urlencode 'length=100'               "$BASE"
             echo
           done
