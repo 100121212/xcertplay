@@ -1,4 +1,4 @@
-name: appdb 1.7 target probe 20261006
+name: appdb 1.7 spec parse 20261006
 on:
   push:
     paths:
@@ -8,40 +8,15 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Query appdb 1.7 for target
+      - name: Parse official appdb 1.7 OpenAPI
         shell: bash
         run: |
           set +e
-          BASE='https://api.dbservices.to/v1.7'
-
-          echo "=== SPEC DISCOVERY ==="
-          curl -L --max-time 20 -sS "$BASE/spec/" -o /tmp/spec
-          echo "SPEC_BYTES=$(wc -c < /tmp/spec)"
-          grep -Eo 'https?://[^"[:space:]<>]+|[A-Za-z0-9_./-]+\.(json|yaml|yml)' /tmp/spec |             grep -Ei 'openapi|swagger|spec|json|yaml' | sort -u | head -100 || true
+          U='https://api.dbservices.to/v1.7/spec/openapi.yaml'
+          curl -L --max-time 30 -sS "$U" -o /tmp/openapi.yaml
+          echo "BYTES=$(wc -c < /tmp/openapi.yaml)"
+          echo "=== ALL PATHS ==="
+          grep -E '^  /[^:]+:' /tmp/openapi.yaml | head -500
           echo
-
-          for endpoint in search search/
-          do
-            for kv in               'bundle_ids=tw.app.idol'               'bundle_ids=com.app.idol'               'trackids=851443895'               'query=培養偶像之蛋'               'query=育ててアイドルの卵'
-            do
-              key="${kv%%=*}"
-              val="${kv#*=}"
-              echo "=== POST /$endpoint type=ios $key=$val ==="
-              curl -L --max-time 30 -sS -X POST                 -F 'type=ios' -F "$key=$val"                 "$BASE/$endpoint" | head -c 100000
-              echo
-              echo "=== GET /$endpoint type=ios $key=$val ==="
-              curl -L --max-time 30 -sS -G                 --data-urlencode 'type=ios'                 --data-urlencode "$key=$val"                 "$BASE/$endpoint" | head -c 100000
-              echo
-            done
-          done
-
-          echo "=== GET_LINKS CANDIDATES ==="
-          for path in get_links get_links/
-          do
-            for value in '851443895' 'tw.app.idol'
-            do
-              echo "--- $path $value"
-              curl -L --max-time 30 -sS -G                 --data-urlencode 'type=ios'                 --data-urlencode "trackids=$value"                 "$BASE/$path" | head -c 100000
-              echo
-            done
-          done
+          echo "=== RELEVANT CONTEXT ==="
+          grep -Ein -C 8 'search|bundle.?id|track.?id|get.?links|ipa|object|appdb.?apps|link' /tmp/openapi.yaml | head -1200
