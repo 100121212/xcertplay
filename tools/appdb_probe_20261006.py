@@ -1,65 +1,69 @@
-import re, urllib.request, urllib.parse, json
+import urllib.request, urllib.parse, json, sys
 
-UA={"User-Agent":"Mozilla/5.0"}
-base="https://api.dbservices.to/v1.7/"
+BASE="https://api.dbservices.to/v1.7/"
+UA="Mozilla/5.0"
 
-def fetch(url):
-    req=urllib.request.Request(url,headers=UA)
+def post(path, data):
+    body=urllib.parse.urlencode(data, doseq=True).encode()
+    req=urllib.request.Request(BASE+path, data=body, headers={
+        "User-Agent":UA,
+        "Content-Type":"application/x-www-form-urlencoded",
+        "Accept":"application/json",
+    }, method="POST")
     try:
         with urllib.request.urlopen(req,timeout=30) as r:
-            b=r.read()
-            print("\nURL",url,"STATUS",r.status,"TYPE",r.headers.get("content-type"),"BYTES",len(b),"FINAL",r.geturl())
-            return b.decode("utf-8","replace")
+            b=r.read().decode("utf-8","replace")
+            print("\n###", path, data, "STATUS", r.status)
+            print(b[:200000])
+            return b
     except Exception as e:
-        print("\nURL",url,"ERR",repr(e),"CODE",getattr(e,"code",None))
+        print("\n###", path, data, "ERR",repr(e),"CODE",getattr(e,"code",None))
+        try:
+            print(e.read().decode("utf-8","replace")[:200000])
+        except: pass
         return ""
 
-spec=fetch(base+"spec/")
-print("\n=== SPEC HEAD ===")
-print(spec[:15000])
-
-print("\n=== SPEC URLS ===")
-for u in sorted(set(re.findall(r'https?://[^"\'<>\s]+',spec))):
-    print(u[:2000])
-
-print("\n=== SPEC ASSET REFS ===")
-for s in sorted(set(re.findall(r'[^"\'<>\s]+\.(?:json|ya?ml|js)(?:\?[^"\'<>\s]*)?',spec,re.I))):
-    print(s[:2000])
-
-candidates=[
-    base+"openapi.json", base+"swagger.json", base+"spec.json",
-    base+"openapi.yaml", base+"openapi.yml",
-    base+"spec/openapi.json", base+"spec/swagger.json",
-    base+"spec/openapi.yaml", base+"spec/openapi.yml",
-    base+"spec/api.json", base+"spec/spec.json",
+tests=[
+    {"type":"ios","name":"培養偶像之蛋","lang":"en","brand":"appdb"},
+    {"type":"ios","name":"育ててアイドルの卵","lang":"en","brand":"appdb"},
+    {"type":"ios","name":"tw.app.idol","lang":"en","brand":"appdb"},
+    {"type":"ios","name":"idol","lang":"en","brand":"appdb"},
+    {"type":"ios","developer_name":"Chronus Inc.","lang":"en","brand":"appdb"},
+    {"name":"培養偶像之蛋","lang":"en","brand":"appdb"},
+    {"name":"育ててアイドルの卵","lang":"en","brand":"appdb"},
+    {"name":"tw.app.idol","lang":"en","brand":"appdb"},
+    {"developer_name":"Chronus Inc.","lang":"en","brand":"appdb"},
 ]
-docs={}
-for u in candidates:
-    s=fetch(u)
-    if s and not s.lstrip().lower().startswith("<!doctype html"):
-        docs[u]=s
+results=[]
+for t in tests:
+    s=post("search_index/",t)
+    try:
+        j=json.loads(s)
+        data=j.get("data")
+        if isinstance(data,list):
+            for x in data:
+                if isinstance(x,dict):
+                    results.append(x)
+    except Exception:
+        pass
 
-for u,s in docs.items():
-    print("\n=== DOC",u,"SEARCH CONTEXT ===")
-    for token in ["search","get_links","bundle_ids","trackids","universal_object_identifier","type"]:
-        ms=list(re.finditer(re.escape(token),s,re.I))
-        if ms:
-            print("\n##",token,"COUNT",len(ms))
-            for m in ms[:40]:
-                print(s[max(0,m.start()-600):min(len(s),m.end()+1600)])
+print("\n=== UNIQUE CANDIDATES ===")
+seen=set()
+for x in results:
+    key=x.get("universal_object_identifier") or x.get("id") or repr(x)
+    if key in seen: continue
+    seen.add(key)
+    print(json.dumps(x,ensure_ascii=False)[:30000])
 
-print("\n=== DIRECT ENDPOINT PROBES ===")
-endpoints=["search/","get_links/","search","get_links"]
-params=[
-    {"type":"ios","bundle_ids":"tw.app.idol"},
-    {"type":"ios","bundle_ids":"com.app.idol"},
-    {"type":"ios","trackids":"851443895"},
-    {"type":"ios","query":"培養偶像之蛋"},
-]
-for ep in endpoints:
-    for p in params:
-        q=urllib.parse.urlencode(p)
-        u=base+ep+"?"+q
-        s=fetch(u)
-        if s:
-            print("BODY",s[:12000])
+print("\n=== TARGET-LIKE UOIS ===")
+uois=[]
+for x in results:
+    blob=json.dumps(x,ensure_ascii=False).lower()
+    if any(k.lower() in blob for k in ["tw.app.idol","com.app.idol","851443895","培養偶像之蛋","育ててアイドルの卵","chronus"]):
+        u=x.get("universal_object_identifier")
+        if u and u not in uois: uois.append(u)
+        print(json.dumps(x,ensure_ascii=False)[:50000])
+
+for u in uois[:20]:
+    print("\n=== UNIVERSAL GATEWAY",u,"===")
+    post("universal_gateway/",{"universal_object_identifier":u,"lang":"en","brand":"appdb"})
