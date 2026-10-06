@@ -114,3 +114,44 @@ except Exception as e:
         for k,v in hdr.items():
             if k.lower() in ["content-type","content-length","content-range","content-disposition","location","etag","last-modified","accept-ranges"]:
                 print("ERR_HDR",k,":",v)
+
+
+print("\n===== DOWNLOAD API CONTROL TESTS =====")
+tests=[
+    ("target","https://www.pgyer.com/ipa/api/download?id=tw.app.idol"),
+    ("gmail","https://www.pgyer.com/ipa/api/download?id=com.google.Gmail"),
+    ("chatgpt","https://www.pgyer.com/ipa/api/download?id=com.openai.chat"),
+    ("target_no_ipa_prefix","https://www.pgyer.com/api/download?id=tw.app.idol"),
+    ("target_locale","https://www.pgyer.com/ipa/zh-Hant/api/download?id=tw.app.idol"),
+]
+for label,u in tests:
+    print("\n---",label,u)
+    h={
+        "User-Agent":UA,
+        "Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language":"en-US,en;q=0.9",
+        "Referer":"https://www.pgyer.com/ipa/ipa/tw.app.idol/download",
+        "Sec-Fetch-Dest":"document",
+        "Sec-Fetch-Mode":"navigate",
+        "Sec-Fetch-Site":"same-origin",
+        "Upgrade-Insecure-Requests":"1",
+    }
+    req=urllib.request.Request(u,headers=h,method="GET")
+    try:
+        with opener.open(req,timeout=30) as r:
+            b=r.read(128)
+            print("STATUS",r.status)
+            print("FINAL",r.geturl())
+            for k,v in r.headers.items():
+                if k.lower() in ["content-type","content-length","content-range","content-disposition","location","etag","last-modified","accept-ranges"]:
+                    print("HDR",k,":",v)
+            print("HEX",b[:32].hex())
+            print("ASCII",repr(b[:128]))
+    except Exception as e:
+        print("ERR",repr(e))
+        print("CODE",getattr(e,"code",None))
+        hdr=getattr(e,"headers",None)
+        if hdr:
+            for k,v in hdr.items():
+                if k.lower() in ["content-type","content-length","content-range","content-disposition","location","etag","last-modified","accept-ranges"]:
+                    print("ERR_HDR",k,":",v)
