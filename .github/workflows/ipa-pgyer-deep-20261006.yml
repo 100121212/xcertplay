@@ -20,10 +20,10 @@ jobs:
           echo
 
           echo "=== FETCH ALL JS CHUNKS ==="
-          grep -Eo 'https://apkhub-static\.appmeme\.com/[^"[:space:]<>]+\.js' /tmp/page | sort -u > /tmp/jsurls
-          cat /tmp/jsurls
+          python3 -c "import pathlib,re; s=pathlib.Path('/tmp/page').read_text(errors='replace'); u=sorted(set(re.findall(r'https://apkhub-static\.appmeme\.com/[^\"[:space:]<>]+\.js',s))); pathlib.Path('/tmp/jsurls').write_text('\n'.join(u)); print('\n'.join(u))"
           : > /tmp/alljs
           while IFS= read -r u; do
+            [ -z "$u" ] && continue
             echo "FETCH $u"
             curl -L --max-time 30 -sS "$u" >> /tmp/alljs
             printf '\n' >> /tmp/alljs
@@ -31,25 +31,46 @@ jobs:
           echo "ALLJS_BYTES $(wc -c < /tmp/alljs)"
           echo
 
-          echo "=== JS URL CANDIDATES ==="
-          grep -Eo 'https?://[^"'''[:space:]<>)]+' /tmp/alljs | sort -u | grep -Ei 'download|ipa|appmeme|apk\.live|api|oss|file' | head -500
-          echo
+          cat > /tmp/analyze.py <<'PY'
+          from pathlib import Path
+          import re
+          s = Path('/tmp/alljs').read_text(errors='replace')
+          pats = [
+              'download', 'assets.apk.live', 'assets.appmeme.com',
+              '.ipa', 'oss_object', 'object_name', 'fetch(',
+              'axios', '/api/', 'api.', 'location.href', 'window.open'
+          ]
+          for p in pats:
+              print('\n### CONTEXT', p)
+              ms = list(re.finditer(re.escape(p), s, re.I))
+              print('COUNT', len(ms))
+              for m in ms[:120]:
+                  print(s[max(0, m.start()-350):min(len(s), m.end()+900)])
+                  print('---')
 
-          echo "=== JS DOWNLOAD/API CONTEXT ==="
-          python3 -c "import pathlib,re; s=pathlib.Path('/tmp/alljs').read_text(errors='replace'); pats=['download','oss_object','assets.apk.live','.ipa','appmeme.com','fetch(','axios','api/']; [(print('### '+p), [print(s[max(0,m.start()-300):min(len(s),m.end()+700)]) for m in list(re.finditer(re.escape(p),s,re.I))[:80]]) for p in pats]"
+          print('\n### QUOTED LITERALS WITH DOWNLOAD/API/IPA')
+          vals = set()
+          for m in re.finditer(r'["\x27]([^"\x27]{1,600})["\x27]', s):
+              v = m.group(1)
+              if re.search(r'download|\.ipa|apk\.live|appmeme|oss|object|api', v, re.I):
+                  vals.add(v)
+          for v in sorted(vals):
+              print(v)
+          PY
+          python3 /tmp/analyze.py
           echo
 
           echo "=== DIRECT OBJECT CANDIDATES ==="
-          for u in             'https://assets.apk.live/tw.app.idol--ipa-1_0_1.ipa'             'https://assets.appmeme.com/tw.app.idol--ipa-1_0_1.ipa'             'https://assets.apk.live/tw.app.idol--ipa-1_0_1'             'https://assets.appmeme.com/tw.app.idol--ipa-1_0_1'             'https://download.apk.live/tw.app.idol--ipa-1_0_1.ipa'             'https://download.appmeme.com/tw.app.idol--ipa-1_0_1.ipa'
+          for u in             'https://assets.apk.live/tw.app.idol--ipa-1_0_1.ipa'             'https://assets.appmeme.com/tw.app.idol--ipa-1_0_1.ipa'             'https://assets.apk.live/tw.app.idol--ipa-1_0_1'             'https://assets.appmeme.com/tw.app.idol--ipa-1_0_1'             'https://download.apk.live/tw.app.idol--ipa-1_0_1.ipa'             'https://download.appmeme.com/tw.app.idol--ipa-1_0_1.ipa'             'https://assets.apk.live/tw.app.idol--ipa-1.0.1.ipa'             'https://assets.appmeme.com/tw.app.idol--ipa-1.0.1.ipa'
           do
             echo "--- $u"
             rm -f /tmp/h /tmp/b
-            curl -L --max-time 25 -sS -D /tmp/h -r 0-31 "$u" -o /tmp/b
-            sed -n '1,30p' /tmp/h
-            echo -n 'BODY_HEX '
-            od -An -tx1 -N32 /tmp/b | tr -d '\n'
+            curl -L --max-time 25 -sS -D /tmp/h -r 0-63 "$u" -o /tmp/b
+            sed -n '1,35p' /tmp/h
+            printf 'BODY_HEX '
+            od -An -tx1 -N64 /tmp/b | tr -d '\n'
             echo
-            echo -n 'BODY_ASCII '
-            strings -n 2 /tmp/b | head -5
+            printf 'BODY_STRINGS '
+            strings -n 2 /tmp/b | head -8
             echo
           done
