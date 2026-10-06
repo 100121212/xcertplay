@@ -8,13 +8,17 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Inspect appdb 1.7 swagger
+      - name: Parse appdb API 1.7 OpenAPI
         shell: bash
         run: |
           set +e
-          curl -L --max-time 30 -sS 'https://api.dbservices.to/v1.7/spec/' -o /tmp/spec
-          echo "=== SPEC HTML ==="
-          cat /tmp/spec
+          curl -L --max-time 30 -sS 'https://api.dbservices.to/v1.7/spec/openapi.yaml' -o /tmp/openapi.yaml
+          echo "=== OPENAPI META ==="
+          wc -c /tmp/openapi.yaml
+          head -n 30 /tmp/openapi.yaml
           echo
-          echo "=== HREF SRC URL TOKENS ==="
-          grep -Eo '(https?://[^"[:space:]]+|[A-Za-z0-9_./-]+\.(json|yaml|yml|js))' /tmp/spec | sort -u
+          echo "=== PATHS ==="
+          grep -E '^  /[^:]+:' /tmp/openapi.yaml | sed 's/^  //'
+          echo
+          echo "=== SEARCH/BUNDLE/TRACK/LINK MATCHES ==="
+          grep -nEi 'search|bundle|trackid|track_id|bundle_id|bundle_ids|get_links|links|ios' /tmp/openapi.yaml | head -n 500
