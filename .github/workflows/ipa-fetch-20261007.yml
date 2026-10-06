@@ -3,60 +3,12 @@ on:
   push:
     paths:
       - ".github/workflows/ipa-fetch-20261007.yml"
+      - "tools/obscura_target_probe_20261007.py"
 
 jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - name: Search live iPhoneOS Obscura database
-        shell: bash
-        run: |
-          set +e
-          UA='Mozilla/5.0'
-          for host in 'https://iosapps.litten.ca' 'https://iphoneosobscura.litten.ca'
-          do
-            echo "===== HOST=$host ====="
-            for q in               'com.app.idol'               'tw.app.idol'               '育ててアイドルの卵'               '培養偶像之蛋'               'idol'               'Chronus'
-            do
-              enc=$(python3 -c 'import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1],safe=""))' "$q")
-              echo "--- SEARCH=$q"
-              curl -L --connect-timeout 5 --max-time 20 -sS -A "$UA"                 -o /tmp/search -w 'HTTP=%{http_code} FINAL=%{url_effective} SIZE=%{size_download}\n'                 "$host/search/$enc" || true
-              grep -aEo '/getAppVersions/[^"< ]+|<center>[^<]{1,80}</center>' /tmp/search | head -100 || true
-            done
-
-            echo "--- DIRECT BUNDLE com.app.idol"
-            curl -L --connect-timeout 5 --max-time 20 -sS -A "$UA"               -o /tmp/direct -w 'HTTP=%{http_code} FINAL=%{url_effective} SIZE=%{size_download}\n'               "$host/getAppVersions/com.app.idol" || true
-            grep -aEo '/getAppVersionLinks/[^"< ]+|https?://[^"< ]+\.ipa[^"< ]*|<title>[^<]+' /tmp/direct | head -100 || true
-
-            echo "--- DIRECT BUNDLE tw.app.idol"
-            curl -L --connect-timeout 5 --max-time 20 -sS -A "$UA"               -o /tmp/direct2 -w 'HTTP=%{http_code} FINAL=%{url_effective} SIZE=%{size_download}\n'               "$host/getAppVersions/tw.app.idol" || true
-            grep -aEo '/getAppVersionLinks/[^"< ]+|https?://[^"< ]+\.ipa[^"< ]*|<title>[^<]+' /tmp/direct2 | head -100 || true
-          done
-
-          echo '===== TROLLAPPS FILTER ====='
-          curl -L --connect-timeout 10 --max-time 180 -sS -A "$UA"             'https://iosapps.litten.ca/trollapps' -o /tmp/trollapps.json || true
-          echo "TROLLAPPS_SIZE=$(wc -c < /tmp/trollapps.json 2>/dev/null || echo 0)"
-          python3 - <<'PY'
-import json, pathlib, re
-p=pathlib.Path('/tmp/trollapps.json')
-try:
-    data=json.loads(p.read_text(errors='replace'))
-except Exception as e:
-    print('JSON_ERROR',repr(e))
-    print(p.read_text(errors='replace')[:2000])
-    raise SystemExit
-apps=data.get('apps',[])
-print('APP_COUNT',len(apps))
-terms=['育ててアイドルの卵','培養偶像之蛋','com.app.idol','tw.app.idol','chronus','idol']
-for term in terms:
-    print('\nTERM',term)
-    t=term.lower()
-    hits=[]
-    for a in apps:
-        blob=' '.join(str(a.get(k,'')) for k in ['name','bundleIdentifier','developerName']).lower()
-        if t in blob:
-            hits.append(a)
-    print('HITS',len(hits))
-    for a in hits[:100]:
-        print(json.dumps(a,ensure_ascii=False))
-PY
+        run: python3 tools/obscura_target_probe_20261007.py
