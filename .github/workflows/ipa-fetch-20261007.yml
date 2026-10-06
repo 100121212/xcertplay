@@ -1,38 +1,14 @@
-name: Apple metadata quick probe 20261007
+name: Common Crawl app 851443895 probe
 on:
   push:
     paths:
       - ".github/workflows/ipa-fetch-20261007.yml"
+      - "tools/ipa_commoncrawl_probe_20261007.py"
 
 jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Query Apple metadata for app 851443895
-        shell: bash
-        run: |
-          set +e
-          UA='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/154 Safari/537.36'
-          urls=(
-            'https://itunes.apple.com/lookup?id=851443895&country=jp'
-            'https://itunes.apple.com/jp/lookup?id=851443895'
-            'https://itunes.apple.com/search?term=%E8%82%B2%E3%81%A6%E3%81%A6%E3%82%A2%E3%82%A4%E3%83%89%E3%83%AB%E3%81%AE%E5%8D%B5&country=jp&entity=software&limit=50'
-            'https://itunes.apple.com/jp/app/yuteteaidoruno-luan/id851443895?mt=8'
-            'https://itunes.apple.com/jp/app/id851443895?mt=8'
-            'https://itunes.apple.com/WebObjects/MZStore.woa/wa/viewSoftware?id=851443895&mt=8'
-            'https://apps.apple.com/jp/app/id851443895'
-          )
-          n=0
-          for u in "${urls[@]}"; do
-            echo "===== APPLE_$n ====="
-            echo "URL=$u"
-            curl -L --retry 1 --connect-timeout 5 --max-time 12 -sS               -A "$UA" -D /tmp/h -o /tmp/b               -w 'HTTP=%{http_code} FINAL=%{url_effective} SIZE=%{size_download} TYPE=%{content_type}\n'               "$u" || true
-            grep -Ei '^(HTTP/|location:|content-type:|content-length:)' /tmp/h | tail -20
-            echo '--- BODY ---'
-            head -c 120000 /tmp/b
-            echo
-            echo '--- KEY MATCHES ---'
-            grep -aEoi '.{0,150}(bundleId|bundleIdentifier|softwareVersionBundleId|CFBundleIdentifier|trackId|version|sellerName|artistName|851443895).{0,350}' /tmp/b | head -100 || true
-            echo
-            n=$((n+1))
-          done
+      - uses: actions/checkout@v4
+      - name: Search Common Crawl and extract archived Apple page
+        run: python3 tools/ipa_commoncrawl_probe_20261007.py
