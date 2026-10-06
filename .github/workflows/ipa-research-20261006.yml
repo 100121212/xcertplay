@@ -8,39 +8,34 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe public IPA indexes and archives
+      - name: Inspect appdb 1.7 and query target
         shell: bash
         run: |
           set +e
-          echo "=== STARFILES bundle_id com.app.idol ==="
-          curl -L --max-time 30 -sS 'https://api2.starfiles.co/bundle_id/com.app.idol' | head -c 120000
+          echo "=== APPDB 1.7 SPEC HEADERS ==="
+          curl -L --max-time 30 -sS -D /tmp/spec.headers 'https://api.dbservices.to/v1.7/spec/' -o /tmp/spec
+          cat /tmp/spec.headers
           echo
-          echo "=== STARFILES search com.app.idol ==="
-          curl -L --max-time 30 -sS 'https://api2.starfiles.co/files?public=true&extension=ipa&group=bundle_id&collapse=true&limit=200&search=com.app.idol' | head -c 120000
+          echo "=== APPDB 1.7 SPEC SEARCH LINES ==="
+          python3 - <<'PY'
+import re, pathlib
+p=pathlib.Path('/tmp/spec')
+b=p.read_bytes()
+print('bytes', len(b))
+s=b.decode('utf-8','replace')
+for m in re.finditer(r'.{0,300}search.{0,700}', s, re.I|re.S):
+    print(m.group(0)[:1200].replace('\n',' '))
+PY
           echo
-          echo "=== STARFILES search 851443895 ==="
-          curl -L --max-time 30 -sS 'https://api2.starfiles.co/files?public=true&extension=ipa&group=bundle_id&collapse=true&limit=200&search=851443895' | head -c 120000
-          echo
-          echo "=== STARFILES search Japanese title ==="
-          curl -L --max-time 30 -sS --get 'https://api2.starfiles.co/files'             --data-urlencode 'public=true' --data-urlencode 'extension=ipa'             --data-urlencode 'group=bundle_id' --data-urlencode 'collapse=true'             --data-urlencode 'limit=200' --data-urlencode 'search=育ててアイドルの卵' | head -c 120000
-          echo
-
+          echo "=== APPDB 1.7 SAME-FORM TESTS ==="
           for kv in             'bundle_ids=com.app.idol'             'trackids=851443895'             'query=育ててアイドルの卵'             'search=育ててアイドルの卵'             'q=育ててアイドルの卵'
           do
             key="${kv%%=*}"
             val="${kv#*=}"
-            echo "=== APPDB ios $key=$val ==="
-            curl -L --max-time 30 -sS -X POST               -F 'type=ios' -F "$key=$val"               'https://api.dbservices.to/v1.6/search/' | head -c 120000
+            echo "--- POST multipart type=ios $key=$val"
+            curl -L --max-time 30 -sS -X POST               -F 'type=ios' -F "$key=$val"               'https://api.dbservices.to/v1.7/search/' | head -c 120000
+            echo
+            echo "--- GET type=ios $key=$val"
+            curl -L --max-time 30 -sS --get               --data-urlencode 'type=ios' --data-urlencode "$key=$val"               'https://api.dbservices.to/v1.7/search/' | head -c 120000
             echo
           done
-
-          for u in             'http://app.iwww.jp/apps/idol/help.html'             'http://app.iwww.jp/apps/idol/fin.html'             'http://app.iwww.jp/apps/idol/'
-          do
-            echo "=== ARQUIVO versionHistory $u ==="
-            curl -L --max-time 40 -sS --get 'https://arquivo.pt/textsearch'               --data-urlencode "versionHistory=$u"               --data-urlencode 'maxItems=50'               --data-urlencode 'prettyPrint=true' | head -c 120000
-            echo
-          done
-
-          echo "=== ARQUIVO CDX prefix ==="
-          curl -L --max-time 40 -sS 'https://arquivo.pt/wayback/cdx?url=app.iwww.jp%2Fapps%2Fidol%2F*&output=json' | head -c 120000
-          echo
