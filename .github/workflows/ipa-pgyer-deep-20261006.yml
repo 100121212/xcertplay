@@ -1,4 +1,4 @@
-name: IPA PGYER compare download API 20261006
+name: IPA archive identity probe 20261006
 on:
   push:
     paths:
@@ -8,33 +8,44 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Compare target with known PGYER entries
+      - name: Resolve App Store identity and Internet Archive metadata
         shell: bash
         run: |
           set +e
-          UA='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/154 Safari/537.36'
 
-          for id in 'tw.app.idol' 'com.openai.chat' 'tw.app.unagi'
+          echo "=== OLD DIRECTORY APP STORE LINKS ==="
+          for u in             'https://www.slunecnice.cz/ios/sw/pei-yang-ou-xiang-zhi-dan/'             'https://www.slunecnice.cz/ios/sw/yuteteaidoruno-luan/'             'https://www.pgyer.com/ipa/ipa/tw.app.idol'
           do
-            base="https://www.pgyer.com/ipa/ipa/$id"
-            api="https://www.pgyer.com/ipa/api/download?id=$id"
-            jar="/tmp/cookies.$id"
-            rm -f "$jar" /tmp/h /tmp/b /tmp/h2 /tmp/b2
-
-            echo "===== ID=$id ====="
-            curl -L --max-time 30 -sS -A "$UA" -c "$jar" "$base" -o /dev/null
-            curl -L --max-time 30 -sS -A "$UA" -e "$base" -b "$jar" -c "$jar" "$base/download" -o /dev/null
-
-            echo "--- NO FOLLOW"
-            curl --max-time 30 -sS               -A "$UA" -e "$base/download" -b "$jar" -c "$jar"               -D /tmp/h -o /tmp/b               -w 'FINAL_URL=%{url_effective}\nHTTP_CODE=%{http_code}\nCONTENT_TYPE=%{content_type}\nSIZE=%{size_download}\n'               "$api"
-            grep -iE '^(HTTP/|location:|content-type:|content-length:|content-disposition:)' /tmp/h || true
-            echo "BODY=$(head -c 300 /tmp/b | strings -n 1 | tr '\n' ' ' | head -c 500)"
+            echo "--- $u"
+            curl -L --max-time 40 -sS "$u" -o /tmp/page
+            echo "BYTES=$(wc -c < /tmp/page)"
+            grep -Eo 'https?://[^"[:space:]<>\\]+' /tmp/page |               sed 's/&amp;/\&/g' |               grep -Ei 'itunes\.apple\.com|apps\.apple\.com|appstore|851443895|tw\.app\.idol' |               sort -u | head -200 || true
+            echo "NUMERIC IDS NEAR APPLE/BUNDLE TERMS"
+            grep -Eoi '.{0,180}(itunes|app.?store|track.?id|bundle.?id|tw\.app\.idol|851443895).{0,400}' /tmp/page | head -100 || true
             echo
+          done
 
-            echo "--- FOLLOW RANGE"
-            curl -L --max-time 60 -sS               -A "$UA" -e "$base/download" -b "$jar" -c "$jar"               -r 0-63               -D /tmp/h2 -o /tmp/b2               -w 'FINAL_URL=%{url_effective}\nHTTP_CODE=%{http_code}\nCONTENT_TYPE=%{content_type}\nSIZE=%{size_download}\n'               "$api"
-            grep -iE '^(HTTP/|location:|content-type:|content-length:|content-range:|content-disposition:)' /tmp/h2 || true
-            echo "HEX=$(od -An -tx1 -N64 /tmp/b2 | tr -d '\n')"
-            echo "STRINGS=$(strings -n 2 /tmp/b2 | head -10 | tr '\n' ' ' | head -c 1000)"
+          echo "=== INTERNET ARCHIVE ADVANCED SEARCH ==="
+          queries=(
+            '"tw.app.idol"'
+            '"851443895"'
+            '"培養偶像之蛋"'
+            '"育ててアイドルの卵"'
+            '"tw.app.idol" AND mediatype:software'
+            '"培養偶像之蛋" AND mediatype:software'
+            '"育ててアイドルの卵" AND mediatype:software'
+          )
+          for q in "${queries[@]}"
+          do
+            echo "--- QUERY $q"
+            curl -L --max-time 45 -sS -G 'https://archive.org/advancedsearch.php'               --data-urlencode "q=$q"               --data-urlencode 'fl[]=identifier'               --data-urlencode 'fl[]=title'               --data-urlencode 'fl[]=description'               --data-urlencode 'fl[]=mediatype'               --data-urlencode 'fl[]=collection'               --data-urlencode 'rows=100'               --data-urlencode 'page=1'               --data-urlencode 'output=json' |               python3 -c "import json,sys; d=json.load(sys.stdin); print('numFound',d.get('response',{}).get('numFound')); [print(x) for x in d.get('response',{}).get('docs',[])]"
+            echo
+          done
+
+          echo "=== WAYBACK CDX KNOWN APP URL FORMS ==="
+          for u in             'itunes.apple.com/*/app/id851443895*'             'apps.apple.com/*/app/id851443895*'             'itunes.apple.com/*/app/*/id851443895*'
+          do
+            echo "--- $u"
+            curl -L --max-time 45 -sS -G 'https://web.archive.org/cdx/search/cdx'               --data-urlencode "url=$u"               --data-urlencode 'output=json'               --data-urlencode 'fl=timestamp,original,statuscode,mimetype,digest'               --data-urlencode 'filter=statuscode:200'               --data-urlencode 'collapse=digest' | head -c 120000
             echo
           done
