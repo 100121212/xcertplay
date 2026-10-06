@@ -1,0 +1,21 @@
+name: alternate app id probe 20261006
+on:
+  push:
+    paths:
+      - ".github/workflows/alternate-appid-probe-20261006.yml"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check public Apple catalog for alternate IDs
+        shell: bash
+        run: |
+          set +e
+          for id in 931197664 851443895; do
+            for cc in tw jp hk cn us cz sg my au ca gb; do
+              echo "===== id=$id country=$cc ====="
+              curl -L --max-time 20 -sS --get 'https://itunes.apple.com/lookup'                 --data-urlencode "id=$id"                 --data-urlencode "country=$cc"
+              echo
+            done
+          done
