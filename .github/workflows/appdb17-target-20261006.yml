@@ -15,8 +15,12 @@ jobs:
           U='https://api.dbservices.to/v1.7/spec/openapi.yaml'
           curl -L --max-time 30 -sS "$U" -o /tmp/openapi.yaml
           echo "BYTES=$(wc -c < /tmp/openapi.yaml)"
-          echo "=== ALL PATHS ==="
-          grep -E '^  /[^:]+:' /tmp/openapi.yaml | head -500
+          echo "=== HEAD ==="
+          sed -n '1,220p' /tmp/openapi.yaml
           echo
-          echo "=== RELEVANT CONTEXT ==="
-          grep -Ein -C 8 'search|bundle.?id|track.?id|get.?links|ipa|object|appdb.?apps|link' /tmp/openapi.yaml | head -1200
+          echo "=== PATH KEYS ==="
+          grep -En '^[[:space:]]*/[^:]+:' /tmp/openapi.yaml | head -600
+          echo
+          echo "=== INDEX/DOWNLOAD/APP CONTEXT ==="
+          grep -Ein -C 12 'index|download|bundle.?id|track.?id|application identifier|universal|links|official app|app list|list apps|search' /tmp/openapi.yaml | head -1600 || true
+          exit 0
