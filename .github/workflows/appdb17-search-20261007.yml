@@ -1,0 +1,38 @@
+name: appdb 1.7 search probe 20261007
+on:
+  push:
+    paths:
+      - ".github/workflows/appdb17-search-20261007.yml"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read search schema and query target
+        shell: bash
+        run: |
+          set -e
+          curl -L --max-time 30 -sS             'https://api.dbservices.to/v1.7/spec/openapi.yaml'             -o /tmp/openapi.yaml
+
+          echo "OPENAPI_SIZE $(wc -c < /tmp/openapi.yaml)"
+          echo "=== SEARCH PATH LOCATIONS ==="
+          grep -nEi '(^|/)(search|unified|index)|bundle[_-]?id|trackid|get_links' /tmp/openapi.yaml | head -300
+
+          echo "=== SEARCH CONTEXT ==="
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('/tmp/openapi.yaml').read_text(errors='replace').splitlines()
+          hits=[]
+          for i,line in enumerate(s):
+              l=line.lower()
+              if ('search' in l or 'bundle_id' in l or 'bundle_ids' in l or 'trackid' in l or 'get_links' in l):
+                  hits.append(i)
+          used=set()
+          for i in hits[:120]:
+              a=max(0,i-12); b=min(len(s),i+35)
+              key=(a,b)
+              if key in used: continue
+              used.add(key)
+              print(f'--- lines {a+1}-{b} ---')
+              print('\n'.join(f'{j+1}: {s[j]}' for j in range(a,b)))
+          PY
