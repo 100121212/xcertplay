@@ -1,84 +1,94 @@
-import re, urllib.request, urllib.parse, sys, json, time
+import re, urllib.request, urllib.parse, http.cookiejar, json, sys
 
-PAGE = "https://www.pgyer.com/ipa/ipa/tw.app.idol"
-UA = {"User-Agent":"Mozilla/5.0"}
+BASE = "https://www.pgyer.com"
+PATHS = [
+    "/ipa/ipa/tw.app.idol",
+    "/ipa/ipa/tw.app.idol/download",
+    "/ipa/ipa/tw.app.idol/downloading",
+]
+UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/154 Safari/537.36"
 
-def get(url, timeout=40):
-    req = urllib.request.Request(url, headers=UA)
-    with urllib.request.urlopen(req, timeout=timeout) as r:
+jar = http.cookiejar.CookieJar()
+opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+
+def fetch(url, referer=None, range_header=None):
+    h={"User-Agent":UA, "Accept-Language":"en-US,en;q=0.9"}
+    if referer: h["Referer"]=referer
+    if range_header: h["Range"]=range_header
+    req=urllib.request.Request(url, headers=h)
+    with opener.open(req, timeout=45) as r:
         return r.read(), dict(r.headers), r.geturl(), r.status
 
-page_b, page_h, page_final, page_status = get(PAGE)
-page = page_b.decode("utf-8","replace")
-print("PAGE", page_status, len(page_b), page_final)
-
-jsurls = sorted(set(re.findall(r'https://apkhub-static\.appmeme\.com/[^"\'<>\s]+?\.js', page)))
-print("JS_COUNT", len(jsurls))
-
-parts = []
-for i,u in enumerate(jsurls,1):
+pages={}
+referer=None
+for path in PATHS:
+    url=BASE+path
+    print("\n===== FETCH",url,"=====")
     try:
-        b, h, final, status = get(u)
-        print("JS", i, status, len(b), u)
-        parts.append(b.decode("utf-8","replace"))
+        b,h,final,status=fetch(url,referer)
+        s=b.decode("utf-8","replace")
+        pages[path]=s
+        print("STATUS",status,"BYTES",len(b),"FINAL",final)
+        print("CONTENT_TYPE",h.get("Content-Type"))
+        print("COOKIES",[(c.name,c.value[:24],c.domain) for c in jar])
+        referer=final
+
+        for key in [
+            "oss_object_name_apk","oss_object_name_xapk","shareUrl1",
+            "storage.appmeme.com","downloadUrl","download_url",
+            "tw.app.idol","1.0.1","1_0_1"
+        ]:
+            ms=list(re.finditer(re.escape(key),s,re.I))
+            if ms:
+                print("\n-- KEY",key,"COUNT",len(ms))
+                for m in ms[:30]:
+                    print(s[max(0,m.start()-700):min(len(s),m.end()+1600)])
+
+        print("\n-- ABS URLS --")
+        urls=sorted(set(re.findall(r'https?://[^"\'<>\\\s)]+',s)))
+        for u in urls:
+            if any(x in u.lower() for x in ["storage.appmeme","apk.live","appmeme","download",".ipa"]):
+                print(u[:2000])
+
+        print("\n-- CANDIDATE JSON OBJECTS --")
+        for patt in [
+            r'"oss_object_name_apk"\s*:\s*"([^"]+)"',
+            r'\\?"oss_object_name_apk\\?"\s*:\s*\\?"([^"\\]+)',
+            r'"shareUrl1"\s*:\s*"([^"]+)"',
+            r'\\?"shareUrl1\\?"\s*:\s*\\?"([^"\\]+)',
+        ]:
+            for v in re.findall(patt,s,re.I)[:100]:
+                print(patt,"=>",v)
+
     except Exception as e:
-        print("JS_ERR", u, repr(e))
+        print("FETCH_ERR",repr(e))
 
-alljs = "\n".join(parts)
-print("ALLJS_BYTES", len(alljs.encode("utf-8","replace")))
+# Collect object names from all pages.
+alltext="\n".join(pages.values())
+names=set()
+for patt in [
+    r'"oss_object_name_apk"\s*:\s*"([^"]+)"',
+    r'\\?"oss_object_name_apk\\?"\s*:\s*\\?"([^"\\]+)',
+]:
+    names.update(re.findall(patt,alltext,re.I))
 
-# Extract URLs from JS.
-urls = sorted(set(re.findall(r'https?://[^"\'<>\s)]+', alljs)))
-print("\n=== URL CANDIDATES ===")
-for u in urls:
-    low = u.lower()
-    if any(k in low for k in ["download","ipa","appmeme","apk.live","api","oss","file"]):
-        print(u[:2000])
-
-# Extract string literals and contexts around likely download implementation tokens.
-tokens = [
-    "download", "downloadUrl", "download_url", "ipaUrl", "ipa_url",
-    "oss_object", "assets.apk.live", ".ipa", "appmeme.com",
-    "fetch(", "axios", "/api/", "objectName", "object_name"
+# Also infer likely object names from icon convention.
+guesses=[
+    "tw.app.idol--ipa-1_0_1.ipa",
+    "tw.app.idol--ipa-1_0_1",
+    "tw.app.idol--ipa-1.0.1.ipa",
+    "tw.app.idol--ipa-1_0_1-apk.ipa",
 ]
-print("\n=== CONTEXTS ===")
-seen = set()
-for token in tokens:
-    for m in list(re.finditer(re.escape(token), alljs, re.I))[:120]:
-        a=max(0,m.start()-500); b=min(len(alljs),m.end()+1200)
-        ctx=alljs[a:b]
-        key=ctx[:500]
-        if key in seen: continue
-        seen.add(key)
-        print("\n###", token)
-        print(ctx)
+names.update(guesses)
 
-# Look for target-specific strings.
-print("\n=== TARGET-SPECIFIC ===")
-for patt in [r'tw\.app\.idol[^"\'<>\s]{0,300}', r'[^"\'<>\s]{0,200}tw\.app\.idol[^"\'<>\s]{0,300}']:
-    for x in sorted(set(re.findall(patt, alljs, re.I)))[:300]:
-        print(x)
-
-# Probe plausible direct object names with Range requests.
-cands = [
- "https://assets.apk.live/tw.app.idol--ipa-1_0_1.ipa",
- "https://assets.appmeme.com/tw.app.idol--ipa-1_0_1.ipa",
- "https://assets.apk.live/tw.app.idol--ipa-1_0_1",
- "https://assets.appmeme.com/tw.app.idol--ipa-1_0_1",
- "https://download.apk.live/tw.app.idol--ipa-1_0_1.ipa",
- "https://download.appmeme.com/tw.app.idol--ipa-1_0_1.ipa",
- "https://assets.apk.live/tw.app.idol--ipa-1.0.1.ipa",
- "https://assets.appmeme.com/tw.app.idol--ipa-1.0.1.ipa"
-]
-print("\n=== DIRECT PROBES ===")
-for u in cands:
-    req = urllib.request.Request(u, headers={**UA, "Range":"bytes=0-63"})
-    try:
-        with urllib.request.urlopen(req, timeout=25) as r:
-            b=r.read(64)
-            print("PROBE", r.status, r.geturl(), r.headers.get("Content-Type"), r.headers.get("Content-Length"), b[:16].hex(), repr(b[:32]))
-    except Exception as e:
-        code=getattr(e,"code",None)
-        headers=getattr(e,"headers",None)
-        loc=headers.get("Location") if headers else None
-        print("PROBE_ERR", code, u, "LOC", loc, repr(e))
+print("\n===== STORAGE PROBES =====")
+for name in sorted(names):
+    for host in ["https://storage.appmeme.com/","https://storage.apk.live/"]:
+        u=host+name.lstrip("/")
+        try:
+            b,h,final,status=fetch(u,BASE+"/ipa/ipa/tw.app.idol/downloading","bytes=0-63")
+            print("OK",status,"URL",u,"FINAL",final,"TYPE",h.get("Content-Type"),"LEN",h.get("Content-Length"),"RANGE",h.get("Content-Range"),"HEX",b[:16].hex(),"ASCII",repr(b[:32]))
+        except Exception as e:
+            code=getattr(e,"code",None)
+            hdr=getattr(e,"headers",None)
+            print("ERR",code,u,"LOC",hdr.get("Location") if hdr else None,repr(e))
