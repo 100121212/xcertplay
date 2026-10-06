@@ -8,21 +8,24 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Query appdb 1.7 search index
+      - name: Broaden appdb index search
         shell: bash
         run: |
           set +e
           BASE='https://api.dbservices.to/v1.7'
-          echo "=== newContentType schema ==="
           curl -L --max-time 30 -sS "$BASE/spec/openapi.yaml" -o /tmp/openapi.yaml
-          grep -nA35 -B3 'newContentType:' /tmp/openapi.yaml | head -n 80
+          echo "=== TYPE SCHEMA ==="
+          sed -n '7995,8030p' /tmp/openapi.yaml
           echo
-          for name in '育ててアイドルの卵' '育成偶像之卵' '851443895' 'Chronus' 'GMO PLAY MUSIC'
+          for name in 'アイドル' 'idol' '卵' '育てて' 'GMO' 'PLAY MUSIC' 'Chronus App' 'クロノス'
           do
-            echo "=== SEARCH name=$name type=ios ==="
-            curl -L --max-time 30 -sS -X POST "$BASE/search_index/"               -H 'Content-Type: application/x-www-form-urlencoded'               --data-urlencode 'brand=appdb'               --data-urlencode 'lang=en'               --data-urlencode 'type=ios'               --data-urlencode "name=$name"               --data-urlencode 'start=0'               --data-urlencode 'length=100'
+            echo "=== SEARCH broad name=$name ==="
+            curl -L --max-time 30 -sS -X POST "$BASE/search_index/"               -H 'Content-Type: application/x-www-form-urlencoded'               --data-urlencode 'brand=appdb'               --data-urlencode 'lang=en'               --data-urlencode "name=$name"               --data-urlencode 'start=0'               --data-urlencode 'length=100'
             echo
-            echo "=== SEARCH name=$name compatibility=ios (no type) ==="
-            curl -L --max-time 30 -sS -X POST "$BASE/search_index/"               -H 'Content-Type: application/x-www-form-urlencoded'               --data-urlencode 'brand=appdb'               --data-urlencode 'lang=en'               --data-urlencode "name=$name"               --data-urlencode 'compatibility=ios'               --data-urlencode 'start=0'               --data-urlencode 'length=100'
+          done
+          for dev in 'Chronus App Inc.' 'Chronus Inc.' 'GMO PLAY MUSIC Inc.' 'GMO PLAY MUSIC'
+          do
+            echo "=== SEARCH developer_name=$dev ==="
+            curl -L --max-time 30 -sS -X POST "$BASE/search_index/"               -H 'Content-Type: application/x-www-form-urlencoded'               --data-urlencode 'brand=appdb'               --data-urlencode 'lang=en'               --data-urlencode "developer_name=$dev"               --data-urlencode 'start=0'               --data-urlencode 'length=100'
             echo
           done
