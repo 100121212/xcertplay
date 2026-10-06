@@ -8,10 +8,21 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Inspect search_index schema
+      - name: Query appdb 1.7 search index
         shell: bash
         run: |
           set +e
-          curl -L --max-time 30 -sS 'https://api.dbservices.to/v1.7/spec/openapi.yaml' -o /tmp/openapi.yaml
-          echo "=== SEARCH_INDEX BLOCK ==="
-          sed -n '2980,3160p' /tmp/openapi.yaml
+          BASE='https://api.dbservices.to/v1.7'
+          echo "=== newContentType schema ==="
+          curl -L --max-time 30 -sS "$BASE/spec/openapi.yaml" -o /tmp/openapi.yaml
+          grep -nA35 -B3 'newContentType:' /tmp/openapi.yaml | head -n 80
+          echo
+          for name in '育ててアイドルの卵' '育成偶像之卵' '851443895' 'Chronus' 'GMO PLAY MUSIC'
+          do
+            echo "=== SEARCH name=$name type=ios ==="
+            curl -L --max-time 30 -sS -X POST "$BASE/search_index/"               -H 'Content-Type: application/x-www-form-urlencoded'               --data-urlencode 'brand=appdb'               --data-urlencode 'lang=en'               --data-urlencode 'type=ios'               --data-urlencode "name=$name"               --data-urlencode 'start=0'               --data-urlencode 'length=100'
+            echo
+            echo "=== SEARCH name=$name compatibility=ios (no type) ==="
+            curl -L --max-time 30 -sS -X POST "$BASE/search_index/"               -H 'Content-Type: application/x-www-form-urlencoded'               --data-urlencode 'brand=appdb'               --data-urlencode 'lang=en'               --data-urlencode "name=$name"               --data-urlencode 'compatibility=ios'               --data-urlencode 'start=0'               --data-urlencode 'length=100'
+            echo
+          done
