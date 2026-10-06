@@ -1,0 +1,15 @@
+name: appdb content types probe 20261006
+on:
+  push:
+    paths:
+      - ".github/workflows/appdb-types-20261006.yml"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read official appdb content type enum
+        shell: bash
+        run: |
+          curl -L --fail --max-time 30 -sS 'https://api.dbservices.to/v1.7/spec/openapi.yaml' -o /tmp/openapi.yaml
+          grep -n -A40 -B2 'newContentType:' /tmp/openapi.yaml | head -100
