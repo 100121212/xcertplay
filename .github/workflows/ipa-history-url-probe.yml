@@ -3,53 +3,12 @@ on:
   push:
     paths:
       - ".github/workflows/ipa-history-url-probe.yml"
+      - "tools/ipa_history_url_probe.py"
 
 jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe historical URLs and Czech mirrors
-        shell: bash
-        run: |
-          set +e
-
-          echo '=== STAHUJ PAGE LINKS ==='
-          for u in             'https://www.stahuj.cz/ios/zabava/yuteteaidoruno-luan/'             'https://www.slunecnice.cz/ios/sw/yuteteaidoruno-luan/'             'https://www.slunecnice.cz/ios/sw/pei-yang-ou-xiang-zhi-dan/'
-          do
-            echo "--- $u"
-            curl -L --max-time 45 -sS "$u" -o /tmp/p
-            echo "BYTES $(wc -c < /tmp/p)"
-            grep -Eoi 'https?://[^"'''<>[:space:]]+' /tmp/p | sed 's/&amp;/\&/g' | sort -u | grep -Ei 'itunes|apple|download|ipa|tw\.app\.idol|851443895|chronus|appstore' | head -200
-            grep -nEi 'download|stáhnout|app store|itunes|851443895|tw\.app\.idol' /tmp/p | head -120
-          done
-
-          echo '=== WAYBACK GLOBAL URL QUERIES ==='
-          for q in             '*tw.app.idol*'             '*851443895*'             '*yuteteaidoruno-luan*'             '*tw.app.idol*.ipa'             '*851443895*.ipa'
-          do
-            echo "--- $q"
-            curl -L --max-time 90 -sS --get 'https://web.archive.org/cdx/search/cdx'               --data-urlencode "url=$q"               --data-urlencode 'output=json'               --data-urlencode 'fl=timestamp,original,statuscode,mimetype,digest,length'               --data-urlencode 'filter=statuscode:200'               --data-urlencode 'collapse=urlkey'               --data-urlencode 'limit=2000' | head -c 300000
-            echo
-          done
-
-          echo '=== COMMON CRAWL RECENT/HISTORIC URL QUERIES ==='
-          python3 - <<'PY'
-import urllib.request, urllib.parse, json, concurrent.futures
-cols=json.load(urllib.request.urlopen('https://index.commoncrawl.org/collinfo.json',timeout=30))
-ids=[x['id'] for x in cols if x['id'][8:12] in {'2014','2015','2016','2017','2018','2019','2020','2021','2022','2023','2024','2025','2026'}]
-queries=['*tw.app.idol*','*851443895*','*yuteteaidoruno-luan*']
-def work(args):
-    cid,q=args
-    url='https://index.commoncrawl.org/'+cid+'-index?'+urllib.parse.urlencode({'url':q,'output':'json','filter':'status:200','pageSize':'200'})
-    try:
-        s=urllib.request.urlopen(url,timeout=25).read().decode('utf-8','replace').strip()
-        if s and 'No Captures found' not in s:
-            return cid,q,s[:120000]
-    except Exception:
-        return None
-jobs=[(c,q) for c in ids for q in queries]
-with concurrent.futures.ThreadPoolExecutor(max_workers=18) as ex:
-    for r in ex.map(work,jobs):
-        if r:
-            print('FOUND',r[0],r[1])
-            print(r[2])
-PY
+      - uses: actions/checkout@v4
+      - name: Probe historical URLs and mirrors
+        run: python3 tools/ipa_history_url_probe.py
