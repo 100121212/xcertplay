@@ -1,0 +1,51 @@
+name: appdb 1.7 API probe 20261007
+on:
+  push:
+    paths:
+      - ".github/workflows/appdb17-probe-20261007.yml"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect appdb 1.7 spec and target search
+        shell: bash
+        run: |
+          set +e
+          UA='Mozilla/5.0'
+
+          echo '===== SPEC PAGE ====='
+          curl -L --connect-timeout 5 --max-time 15 -sS -A "$UA"             -D /tmp/sh -o /tmp/spec 'https://api.dbservices.to/v1.7/spec/'
+          grep -Ei '^(HTTP/|content-type:|location:)' /tmp/sh
+          echo "SIZE=$(wc -c < /tmp/spec)"
+          head -c 30000 /tmp/spec
+          echo
+
+          echo '===== SPEC URL CANDIDATES ====='
+          grep -aEo 'https?://[^"''' <>]+|[^"''' <>]+\.(json|ya?ml)' /tmp/spec | sort -u | head -100
+
+          for u in             'https://api.dbservices.to/v1.7/spec/openapi.json'             'https://api.dbservices.to/v1.7/spec/swagger.json'             'https://api.dbservices.to/v1.7/openapi.json'             'https://api.dbservices.to/v1.7/swagger.json'             'https://api.dbservices.to/v1.7/spec.json'
+          do
+            echo "===== TRY $u ====="
+            curl -L --connect-timeout 5 --max-time 15 -sS -A "$UA"               -D /tmp/h -o /tmp/b "$u" || true
+            grep -Ei '^(HTTP/|content-type:|location:)' /tmp/h | tail -10
+            echo "SIZE=$(wc -c < /tmp/b 2>/dev/null || echo 0)"
+            head -c 3000 /tmp/b
+            echo
+          done
+
+          echo '===== DIRECT 1.7 SEARCH TESTS ====='
+          for mode in bundle track title
+          do
+            case "$mode" in
+              bundle) key='bundle_ids'; val='com.app.idol' ;;
+              track) key='trackids'; val='851443895' ;;
+              title) key='query'; val='育ててアイドルの卵' ;;
+            esac
+            echo "--- $mode POST"
+            curl -L --connect-timeout 5 --max-time 15 -sS -A "$UA"               -X POST -F 'type=ios' -F "$key=$val"               'https://api.dbservices.to/v1.7/search/' | head -c 20000
+            echo
+            echo "--- $mode GET"
+            curl -L --connect-timeout 5 --max-time 15 -sS -A "$UA"               --get --data-urlencode 'type=ios' --data-urlencode "$key=$val"               'https://api.dbservices.to/v1.7/search/' | head -c 20000
+            echo
+          done
