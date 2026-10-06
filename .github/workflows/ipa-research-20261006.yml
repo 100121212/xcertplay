@@ -8,24 +8,26 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Broaden appdb index search
+      - name: Search Internet Archive and Wayback
         shell: bash
         run: |
           set +e
-          BASE='https://api.dbservices.to/v1.7'
-          curl -L --max-time 30 -sS "$BASE/spec/openapi.yaml" -o /tmp/openapi.yaml
-          echo "=== TYPE SCHEMA ==="
-          sed -n '7995,8030p' /tmp/openapi.yaml
+          echo "=== INTERNET ARCHIVE ADVANCED SEARCH ==="
+          for q in             '851443895'             '"育ててアイドルの卵"'             '"育成偶像之卵"'             '"com.app.idol"'             '"Chronus App Inc."'             '"GMO PLAY MUSIC"'
+          do
+            echo "--- QUERY: $q"
+            curl -L --max-time 45 -sS --get 'https://archive.org/advancedsearch.php'               --data-urlencode "q=$q"               --data-urlencode 'fl[]=identifier'               --data-urlencode 'fl[]=title'               --data-urlencode 'fl[]=description'               --data-urlencode 'fl[]=collection'               --data-urlencode 'fl[]=mediatype'               --data-urlencode 'rows=200'               --data-urlencode 'page=1'               --data-urlencode 'output=json'
+            echo
+          done
+
+          echo "=== WAYBACK CDX APP STORE ==="
+          for u in             'itunes.apple.com/jp/app/id851443895*'             'itunes.apple.com/*/app/*/id851443895*'             'apps.apple.com/*/app/*/id851443895*'             'itunes.apple.com/lookup?id=851443895*'             'app.iwww.jp/apps/idol/*'
+          do
+            echo "--- URL: $u"
+            curl -L --max-time 60 -sS --get 'https://web.archive.org/cdx/search/cdx'               --data-urlencode "url=$u"               --data-urlencode 'output=json'               --data-urlencode 'fl=timestamp,original,statuscode,mimetype,digest,length'               --data-urlencode 'filter=statuscode:200'               --data-urlencode 'collapse=digest'               --data-urlencode 'limit=500'
+            echo
+          done
+
+          echo "=== IA METADATA SEARCH API URL-ENCODED TITLE ==="
+          curl -L --max-time 45 -sS 'https://archive.org/advancedsearch.php?q=%28title%3A%28%22%E8%82%B2%E3%81%A6%E3%81%A6%E3%82%A2%E3%82%A4%E3%83%89%E3%83%AB%E3%81%AE%E5%8D%B5%22%29+OR+description%3A%28%22%E8%82%B2%E3%81%A6%E3%81%A6%E3%82%A2%E3%82%A4%E3%83%89%E3%83%AB%E3%81%AE%E5%8D%B5%22%29%29&fl%5B%5D=identifier&fl%5B%5D=title&rows=200&page=1&output=json'
           echo
-          for name in 'アイドル' 'idol' '卵' '育てて' 'GMO' 'PLAY MUSIC' 'Chronus App' 'クロノス'
-          do
-            echo "=== SEARCH broad name=$name ==="
-            curl -L --max-time 30 -sS -X POST "$BASE/search_index/"               -H 'Content-Type: application/x-www-form-urlencoded'               --data-urlencode 'brand=appdb'               --data-urlencode 'lang=en'               --data-urlencode "name=$name"               --data-urlencode 'start=0'               --data-urlencode 'length=100'
-            echo
-          done
-          for dev in 'Chronus App Inc.' 'Chronus Inc.' 'GMO PLAY MUSIC Inc.' 'GMO PLAY MUSIC'
-          do
-            echo "=== SEARCH developer_name=$dev ==="
-            curl -L --max-time 30 -sS -X POST "$BASE/search_index/"               -H 'Content-Type: application/x-www-form-urlencoded'               --data-urlencode 'brand=appdb'               --data-urlencode 'lang=en'               --data-urlencode "developer_name=$dev"               --data-urlencode 'start=0'               --data-urlencode 'length=100'
-            echo
-          done
