@@ -1,0 +1,14 @@
+name: Japanese IPA metadata probe 20261007
+on:
+  push:
+    paths:
+      - ".github/workflows/ipa-jp-metadata-20261007.yml"
+      - "tools/ipa_jp_metadata_probe_20261007.py"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Recover Japanese App Store metadata and archive traces
+        run: python3 tools/ipa_jp_metadata_probe_20261007.py
