@@ -3,7 +3,7 @@ import json, urllib.request, urllib.parse, re, concurrent.futures, gzip, io
 UA={"User-Agent":"Mozilla/5.0"}
 TARGETS=[
  "https://itunes.apple.com/jp/app/id851443895",
- "https://itunes.apple.com/jp/app/yuteteaidoruno-luan/id851443895",
+ "https://itunes.apple.com/jp/app/yuteteaidoruno-luan/id851443895",\n "https://itunes.apple.com/jp/app/yuteteaidoruno-luan/id851443895?mt=8",\n "http://itunes.apple.com/jp/app/yuteteaidoruno-luan/id851443895?mt=8",
  "http://itunes.apple.com/jp/app/id851443895",
  "http://itunes.apple.com/jp/app/yuteteaidoruno-luan/id851443895",
  "https://itunes.apple.com/lookup?id=851443895&country=jp",
