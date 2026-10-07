@@ -1,0 +1,31 @@
+name: PGYER browser-session download probe 20261007
+on:
+  push:
+    paths:
+      - ".github/workflows/pgyer-session-download-20261007.yml"
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mimic browser session
+        shell: bash
+        run: |
+          set +e
+          UA='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36'
+          PAGE='https://www.pgyer.com/ipa/ipa/tw.app.idol/download'
+          curl -sS -L -A "$UA" -c /tmp/cookies -b /tmp/cookies "$PAGE" -o /tmp/page -D /tmp/page.headers
+          echo '=== PAGE COOKIES ==='
+          cat /tmp/cookies
+          echo '=== PAGE HEADERS ==='
+          sed -n '1,80p' /tmp/page.headers
+
+          for url in             'https://www.pgyer.com/ipa/api/download?id=tw.app.idol'             'https://www.pgyer.com/ipa/api/download/?id=tw.app.idol'             'https://www.pgyer.com/ipa/api/download?id=tw.app.idol&version=1.0.1'             'https://www.pgyer.com/ipa/api/download?id=tw.app.idol&v=1.0.1'             'https://www.pgyer.com/ipa/api/download?id=tw.app.idol&locale=en'
+          do
+            echo "===== $url ====="
+            rm -f /tmp/h /tmp/b
+            curl -sS -A "$UA" -b /tmp/cookies -c /tmp/cookies               -e "$PAGE"               -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8'               -H 'Sec-Fetch-Site: same-origin'               -H 'Sec-Fetch-Mode: navigate'               -H 'Sec-Fetch-Dest: document'               -D /tmp/h -o /tmp/b "$url"
+            sed -n '1,120p' /tmp/h
+            echo "BODY_BYTES $(wc -c < /tmp/b)"
+            echo -n 'BODY_HEAD_HEX '; od -An -tx1 -N64 /tmp/b | tr -d '\n'; echo
+            echo -n 'BODY_TEXT '; head -c 500 /tmp/b | tr '\n' ' '; echo
+          done
