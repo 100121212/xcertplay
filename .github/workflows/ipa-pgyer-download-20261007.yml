@@ -1,14 +1,14 @@
-name: IPA PGYER RSC URL probe 20261007
+name: Historical iTunes probe 851443895
 on:
   push:
     paths:
       - ".github/workflows/ipa-pgyer-download-20261007.yml"
-      - "tools/ipa_pgyer_rsc_url_probe_20261007.py"
+      - "tools/find_itunes_bundle_851443895.py"
 
 jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Extract server-rendered IPA URL prop
-        run: python3 tools/ipa_pgyer_rsc_url_probe_20261007.py
+      - name: Recover historical App Store metadata
+        run: python3 tools/find_itunes_bundle_851443895.py
