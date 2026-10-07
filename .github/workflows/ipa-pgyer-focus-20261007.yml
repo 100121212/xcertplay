@@ -1,0 +1,14 @@
+name: IPA PGYER focused probe 20261007
+on:
+  push:
+    paths:
+      - ".github/workflows/ipa-pgyer-focus-20261007.yml"
+      - "tools/ipa_pgyer_focus_20261007.py"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Focus PGYER download href
+        run: python3 tools/ipa_pgyer_focus_20261007.py
