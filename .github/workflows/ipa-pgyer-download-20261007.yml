@@ -1,14 +1,14 @@
-name: Historical iTunes probe 851443895
+name: Common Crawl iTunes probe 851443895
 on:
   push:
     paths:
       - ".github/workflows/ipa-pgyer-download-20261007.yml"
-      - "tools/find_itunes_bundle_851443895.py"
+      - "tools/commoncrawl_itunes_851443895.py"
 
 jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Recover historical App Store metadata
-        run: python3 tools/find_itunes_bundle_851443895.py
+      - name: Recover archived iTunes metadata from Common Crawl
+        run: python3 tools/commoncrawl_itunes_851443895.py
