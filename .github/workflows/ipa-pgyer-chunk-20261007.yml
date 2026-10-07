@@ -1,0 +1,20 @@
+name: IPA PGYER chunk inspect 20261007
+on:
+  push:
+    paths:
+      - ".github/workflows/ipa-pgyer-chunk-20261007.yml"
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump download page chunks
+        shell: bash
+        run: |
+          set -e
+          echo '=== DOWNLOAD CHUNK ==='
+          curl -L --max-time 30 -sS 'https://apkhub-static.appmeme.com/_next/static/chunks/app/ipa/(store)/ipa/%5Bid%5D/download/page-edd68d795de4995c.js'
+          echo
+          echo '=== DOWNLOADING CHUNK ==='
+          curl -L --max-time 30 -sS 'https://apkhub-static.appmeme.com/_next/static/chunks/app/ipa/(store)/ipa/%5Bid%5D/downloading/page-9cdd3c3474503718.js'
+          echo
