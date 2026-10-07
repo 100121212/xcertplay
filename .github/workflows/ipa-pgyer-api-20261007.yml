@@ -1,0 +1,41 @@
+name: IPA PGYER API fetch 20261007
+on:
+  push:
+    paths:
+      - ".github/workflows/ipa-pgyer-api-20261007.yml"
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve and fetch IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://www.pgyer.com/ipa/api/download?id=tw.app.idol'
+          mkdir -p out
+
+          echo '=== NO-FOLLOW HEADERS ==='
+          curl -sS -D /tmp/h0 -o /tmp/b0 --max-time 45 "$URL" || true
+          cat /tmp/h0 || true
+          echo "BODY0_BYTES $(wc -c < /tmp/b0 2>/dev/null || echo 0)"
+          head -c 300 /tmp/b0 2>/dev/null || true
+          echo
+
+          echo '=== FOLLOW DOWNLOAD ==='
+          curl -L --fail --retry 2 --max-time 180 -D /tmp/h1 "$URL" -o out/idol-egg.ipa
+          cat /tmp/h1
+          ls -lh out/idol-egg.ipa
+          file out/idol-egg.ipa
+          sha256sum out/idol-egg.ipa
+          echo -n 'MAGIC '; od -An -tx1 -N16 out/idol-egg.ipa | tr -d '\n'; echo
+          echo '=== ZIP LIST HEAD ==='
+          unzip -l out/idol-egg.ipa | head -80 || true
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: idol-egg-ios-ipa
+          path: out/idol-egg.ipa
+          compression-level: 0
+          retention-days: 1
