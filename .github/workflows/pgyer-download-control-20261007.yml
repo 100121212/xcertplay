@@ -1,0 +1,32 @@
+name: PGYER download control test 20261007
+on:
+  push:
+    paths:
+      - ".github/workflows/pgyer-download-control-20261007.yml"
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compare target with control apps
+        shell: bash
+        run: |
+          set +e
+          UA='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36'
+          for id in tw.app.idol com.openai.chat com.google.Gmail com.waze.iphone ch.protonmail.vpn
+          do
+            echo "===== APP $id ====="
+            PAGE="https://www.pgyer.com/ipa/ipa/$id/download"
+            rm -f /tmp/cookies /tmp/page /tmp/h
+            curl -sS -L -A "$UA" -c /tmp/cookies -b /tmp/cookies "$PAGE" -o /tmp/page
+            echo "PAGE_BYTES $(wc -c < /tmp/page)"
+            echo "OSS_APK_COUNT $(grep -o 'oss_object_name_apk' /tmp/page | wc -l)"
+            echo "SHAREURL_COUNT $(grep -o 'shareUrl1' /tmp/page | wc -l)"
+            echo "PACKAGE_PROP_COUNT $(grep -o '\\\"package\\\"' /tmp/page | wc -l)"
+            echo "TARGET_SNIPPET"
+            grep -oE '.{0,180}(oss_object_name_apk|shareUrl1|storage\.appmeme\.com|/ipa/api/download\?id=[^"< ]+).{0,300}' /tmp/page | head -20 || true
+            API="https://www.pgyer.com/ipa/api/download?id=$id"
+            curl -sS -A "$UA" -b /tmp/cookies -e "$PAGE" -D /tmp/h -o /tmp/b "$API"
+            awk 'BEGIN{IGNORECASE=1} /^HTTP\// || /^location:/ || /^content-type:/ || /^content-length:/' /tmp/h
+            echo "API_BODY_BYTES $(wc -c < /tmp/b)"
+            echo -n "API_BODY_HEAD "; head -c 120 /tmp/b | tr '\n' ' '; echo
+          done
