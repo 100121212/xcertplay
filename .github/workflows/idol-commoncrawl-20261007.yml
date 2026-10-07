@@ -1,0 +1,14 @@
+name: Idol Common Crawl probe 20261007
+on:
+  push:
+    paths:
+      - ".github/workflows/idol-commoncrawl-20261007.yml"
+      - "tools/idol_commoncrawl_probe_20261007.py"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Query Common Crawl 2014-2019
+        run: python3 tools/idol_commoncrawl_probe_20261007.py
