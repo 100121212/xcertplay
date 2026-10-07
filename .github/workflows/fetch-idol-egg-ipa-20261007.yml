@@ -1,0 +1,40 @@
+name: Fetch Idol Egg IPA from PGYER 20261007
+on:
+  push:
+    paths:
+      - ".github/workflows/fetch-idol-egg-ipa-20261007.yml"
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch headers and IPA
+        shell: bash
+        run: |
+          set -euxo pipefail
+          URL='https://www.pgyer.com/ipa/api/download?id=tw.app.idol'
+          echo '=== first response ==='
+          curl -sS -D /tmp/headers1 -o /tmp/body1 "$URL" || true
+          cat /tmp/headers1 || true
+          echo 'BODY1_BYTES'
+          wc -c /tmp/body1 || true
+          echo 'BODY1_HEAD'
+          od -An -tx1 -N64 /tmp/body1 || true
+
+          echo '=== follow redirects / full fetch ==='
+          curl -L --fail --retry 3 -D /tmp/headers-final "$URL" -o /tmp/idol.ipa
+          cat /tmp/headers-final
+          ls -lh /tmp/idol.ipa
+          file /tmp/idol.ipa
+          sha256sum /tmp/idol.ipa
+          echo 'HEAD'
+          od -An -tx1 -N32 /tmp/idol.ipa
+          echo 'ZIP LIST'
+          unzip -l /tmp/idol.ipa | head -80 || true
+          mkdir -p transfer
+          cp /tmp/idol.ipa transfer/育ててアイドルの卵_PGYER_1.0.1.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: idol-egg-ipa-pgyer-1.0.1
+          path: transfer/育ててアイドルの卵_PGYER_1.0.1.ipa
+          compression-level: 0
+          retention-days: 1
