@@ -1,14 +1,14 @@
-name: IPA PGYER download probe 20261007
+name: IPA PGYER targeted probe 20261007
 on:
   push:
     paths:
       - ".github/workflows/ipa-pgyer-download-20261007.yml"
-      - "tools/ipa_pgyer_download_probe_20261007.py"
+      - "tools/ipa_pgyer_chunks_probe_20261007.py"
 
 jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Probe PGYER download routes
-        run: python3 tools/ipa_pgyer_download_probe_20261007.py
+      - name: Probe PGYER download chunks
+        run: python3 tools/ipa_pgyer_chunks_probe_20261007.py
