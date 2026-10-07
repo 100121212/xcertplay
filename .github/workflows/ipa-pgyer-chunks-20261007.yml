@@ -1,0 +1,12 @@
+name: IPA PGYER chunk analyzer 20261007
+on:
+  push:
+    paths:
+      - ".github/workflows/ipa-pgyer-chunks-20261007.yml"
+      - "tools/ipa_pgyer_chunks_20261007.py"
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/ipa_pgyer_chunks_20261007.py
