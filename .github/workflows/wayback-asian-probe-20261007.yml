@@ -1,0 +1,14 @@
+name: Wayback Asian probe 20261007
+on:
+  push:
+    paths:
+      - ".github/workflows/wayback-asian-probe-20261007.yml"
+      - "tools/wayback_asian_probe_20261007.py"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe Wayback historical URLs
+        run: python3 tools/wayback_asian_probe_20261007.py
